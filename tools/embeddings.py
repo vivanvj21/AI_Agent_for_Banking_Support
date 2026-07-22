@@ -19,14 +19,29 @@ OpenAI/Cohere provider) for anything beyond local development.
 from abc import ABC, abstractmethod
 import hashlib
 import os
+import sys
 import numpy as np
 
 
 class EmbeddingProvider(ABC):
+    """Minimal embedding provider interface used by the RAG pipeline."""
+
+    model_name: str = "unknown"
+    dimensions: int | None = None
+
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Return one embedding vector per input text."""
         raise NotImplementedError
+
+    def embed_batched(
+        self, texts: list[str], batch_size: int = 64
+    ) -> list[list[float]]:
+        """Embed texts in bounded batches to avoid provider request limits."""
+        embeddings: list[list[float]] = []
+        for start in range(0, len(texts), batch_size):
+            embeddings.extend(self.embed(texts[start : start + batch_size]))
+        return embeddings
 
 
 class VoyageEmbeddingProvider(EmbeddingProvider):
@@ -47,6 +62,10 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
             raise RuntimeError("VOYAGE_API_KEY environment variable is not set.")
         self.client = voyageai.Client(api_key=api_key)
         self.model = model or os.environ.get("VOYAGE_MODEL", "voyage-3.5")
+        self.model_name = self.model
+        # voyage-3.5 currently returns 1024-dimensional vectors. Keep this
+        # as metadata only so model overrides do not break runtime behavior.
+        self.dimensions = 1024 if self.model == "voyage-3.5" else None
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         result = self.client.embed(texts, model=self.model, input_type="document")
@@ -67,17 +86,25 @@ class LocalHashEmbeddingProvider(EmbeddingProvider):
 
     def __init__(self, dim: int = 256, vocab_buckets: int = 4096, seed: int = 42):
         self.dim = dim
+        self.dimensions = dim
+        self.model_name = f"local-hash-{dim}"
         self.vocab_buckets = vocab_buckets
         rng = np.random.default_rng(seed)
         self.projection = rng.normal(size=(vocab_buckets, dim))
 
     def _tokenize(self, text: str) -> list[str]:
-        return [t for t in "".join(c.lower() if c.isalnum() else " " for c in text).split() if t]
+        return [
+            t
+            for t in "".join(c.lower() if c.isalnum() else " " for c in text).split()
+            if t
+        ]
 
     def _bow_vector(self, text: str) -> np.ndarray:
         vec = np.zeros(self.vocab_buckets)
         for token in self._tokenize(text):
-            bucket = int(hashlib.md5(token.encode()).hexdigest(), 16) % self.vocab_buckets
+            bucket = (
+                int(hashlib.md5(token.encode()).hexdigest(), 16) % self.vocab_buckets
+            )
             vec[bucket] += 1.0
         norm = np.linalg.norm(vec)
         return vec / norm if norm > 0 else vec
@@ -102,7 +129,13 @@ def get_default_provider() -> EmbeddingProvider:
         try:
             return VoyageEmbeddingProvider()
         except Exception as e:
-            print(f"[embeddings] Voyage provider unavailable ({e}); falling back to local dev embeddings.")
+            print(
+                f"[embeddings] Voyage provider unavailable ({e}); falling back to local dev embeddings.",
+                file=sys.stderr,
+            )
     else:
-        print("[embeddings] VOYAGE_API_KEY not set; using LocalHashEmbeddingProvider (dev/demo only, not semantic).")
+        print(
+            "[embeddings] VOYAGE_API_KEY not set; using LocalHashEmbeddingProvider (dev/demo only, not semantic).",
+            file=sys.stderr,
+        )
     return LocalHashEmbeddingProvider()

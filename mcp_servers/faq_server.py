@@ -24,12 +24,12 @@ mcp = FastMCP("bank-faq-server")
 
 
 @mcp.tool()
-def search_faq(query: str, k: int = 3) -> dict:
+def search_faq(query: str, k: int = 3, source: str | None = None) -> dict:
     """
     Semantic search over the bank's FAQ/policy knowledge base.
     Returns top-k chunks with their source doc name.
     """
-    return _search_faq(query=query, k=k)
+    return _search_faq(query=query, k=k, source=source)
 
 
 if __name__ == "__main__":
