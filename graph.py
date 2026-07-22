@@ -71,7 +71,11 @@ def verify_gate_node(state: AgentState) -> AgentState:
 
 def route_after_verify(state: AgentState) -> str:
     if state.get("verified"):
-        return state["intent"] + "_agent" if state["intent"] in ("account", "fraud") else "clarify"
+        return (
+            state["intent"] + "_agent"
+            if state["intent"] in ("account", "fraud")
+            else "clarify"
+        )
     if state.get("retry_count", 0) >= state.get("max_retries", 3):
         return "human_handoff"
     return "await_credentials"
@@ -99,7 +103,9 @@ def account_agent_node(state: AgentState) -> AgentState:
 
 def fraud_agent_node(state: AgentState) -> AgentState:
     last_user_msg = state["messages"][-1]["content"]
-    reply = run_fraud_agent(last_user_msg, state["user_id"], state["tool_calls_log"], state["turn"])
+    reply = run_fraud_agent(
+        last_user_msg, state["user_id"], state["tool_calls_log"], state["turn"]
+    )
     state["reply"] = reply
     return state
 
@@ -210,7 +216,7 @@ def resume_session(session_id: str) -> AgentState:
     turn = sum(1 for m in messages if m["role"] == "user")
 
     return {
-        "messages": messages[-memory.MAX_HISTORY_MESSAGES:],
+        "messages": messages[-memory.MAX_HISTORY_MESSAGES :],
         "turn": turn,
         "session_id": session_id,
         "intent": None,

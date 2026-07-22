@@ -9,10 +9,13 @@ import sqlite3
 import hashlib
 from pathlib import Path
 
+from db.init_db import ensure_database
+
 DB_PATH = Path(__file__).parent.parent / "db" / "bank.db"
 
 
 def _connect():
+    ensure_database(DB_PATH, seed_demo_data=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -36,7 +39,11 @@ def verify_identity(user_id: str, pin: str) -> dict:
     conn.close()
     if row is None:
         return {"verified": False, "error": "User ID or PIN did not match our records."}
-    return {"verified": True, "user_id": row["user_id"], "first_name": row["first_name"]}
+    return {
+        "verified": True,
+        "user_id": row["user_id"],
+        "first_name": row["first_name"],
+    }
 
 
 def get_balance(user_id: str, account_id: str | None = None) -> dict:
@@ -66,7 +73,9 @@ def get_balance(user_id: str, account_id: str | None = None) -> dict:
     return {"accounts": [dict(r) for r in rows]}
 
 
-def get_transaction_history(user_id: str, account_id: str | None = None, limit: int = 10) -> dict:
+def get_transaction_history(
+    user_id: str, account_id: str | None = None, limit: int = 10
+) -> dict:
     """
     Get recent transactions for a user, optionally scoped to one account.
     """
@@ -96,7 +105,9 @@ def get_transaction_history(user_id: str, account_id: str | None = None, limit: 
     return {"transactions": [dict(r) for r in rows]}
 
 
-def mask_account_number(account_number: str, mask_char: str = "*", visible_last: int = 4) -> str:
+def mask_account_number(
+    account_number: str, mask_char: str = "*", visible_last: int = 4
+) -> str:
     """Mask an account/card identifier, showing only the last `visible_last` chars."""
     cleaned = "".join(filter(str.isalnum, account_number))
     if len(cleaned) <= visible_last:

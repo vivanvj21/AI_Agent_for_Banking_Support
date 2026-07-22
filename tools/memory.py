@@ -27,12 +27,15 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from db.init_db import ensure_database
+
 DB_PATH = Path(__file__).parent.parent / "db" / "bank.db"
 
 MAX_HISTORY_MESSAGES = 20  # cap on turns replayed back into a resumed session
 
 
 def _connect():
+    ensure_database(DB_PATH, seed_demo_data=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -118,7 +121,9 @@ def get_session_user(session_id: str) -> str | None:
     return row["user_id"] if row else None
 
 
-def get_recent_sessions_for_user(user_id: str, limit: int = 5, exclude_session_id: str | None = None) -> list[dict]:
+def get_recent_sessions_for_user(
+    user_id: str, limit: int = 5, exclude_session_id: str | None = None
+) -> list[dict]:
     """Most recent past sessions for a verified user, most recent first."""
     conn = _connect()
     if exclude_session_id:
@@ -138,7 +143,9 @@ def get_recent_sessions_for_user(user_id: str, limit: int = 5, exclude_session_i
     return [dict(r) for r in rows]
 
 
-def get_last_session_summary_for_user(user_id: str, exclude_session_id: str | None = None) -> dict | None:
+def get_last_session_summary_for_user(
+    user_id: str, exclude_session_id: str | None = None
+) -> dict | None:
     """
     Cheap 'long term memory' lookup: grabs the most recent prior session for
     this user and returns its first user message + turn count, so an agent
@@ -146,7 +153,9 @@ def get_last_session_summary_for_user(user_id: str, exclude_session_id: str | No
     in a vector store. Good enough at this data volume; swap for a
     summarization pass if session transcripts get long.
     """
-    sessions = get_recent_sessions_for_user(user_id, limit=1, exclude_session_id=exclude_session_id)
+    sessions = get_recent_sessions_for_user(
+        user_id, limit=1, exclude_session_id=exclude_session_id
+    )
     if not sessions:
         return None
     prior = sessions[0]

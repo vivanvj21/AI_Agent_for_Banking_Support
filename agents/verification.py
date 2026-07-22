@@ -21,7 +21,10 @@ def extract_credentials(user_message: str) -> tuple[str | None, str | None]:
     credential parsing is a demo convenience only.
     """
     user_id_match = re.search(r"\bU\d{4}\b", user_message)
-    pin_match = re.search(r"\b\d{4}\b", user_message.replace(user_id_match.group() if user_id_match else "", ""))
+    pin_match = re.search(
+        r"\b\d{4}\b",
+        user_message.replace(user_id_match.group() if user_id_match else "", ""),
+    )
     user_id = user_id_match.group() if user_id_match else None
     pin = pin_match.group() if pin_match else None
     return user_id, pin

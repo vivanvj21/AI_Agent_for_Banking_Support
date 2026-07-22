@@ -6,10 +6,21 @@ every tool call still re-checks row ownership in SQL as defense in depth.
 """
 
 from anthropic import Anthropic
+from config import require_llm_config
 from tools.account_tools import get_balance, get_transaction_history
 from tools.memory import get_last_session_summary_for_user
 
-client = Anthropic()
+_anthropic_client = None
+
+
+def get_client():
+    """Create the Anthropic client lazily after config validation."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        config = require_llm_config()
+        _anthropic_client = Anthropic(api_key=config.api_key)
+    return _anthropic_client
+
 
 TOOLS = [
     {
@@ -18,7 +29,10 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "account_id": {"type": "string", "description": "Specific account ID, e.g. 'A2001'. Omit to list all accounts."},
+                "account_id": {
+                    "type": "string",
+                    "description": "Specific account ID, e.g. 'A2001'. Omit to list all accounts.",
+                },
             },
         },
     },
@@ -28,8 +42,15 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "account_id": {"type": "string", "description": "Specific account ID to filter by. Omit for all accounts."},
-                "limit": {"type": "integer", "description": "Max number of transactions to return.", "default": 10},
+                "account_id": {
+                    "type": "string",
+                    "description": "Specific account ID to filter by. Omit for all accounts.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max number of transactions to return.",
+                    "default": 10,
+                },
             },
         },
     },
@@ -73,7 +94,7 @@ def run_account_agent(
     messages = [{"role": "user", "content": user_message}]
 
     for _ in range(max_tool_iters):
-        response = client.messages.create(
+        response = get_client().messages.create(
             model="claude-sonnet-4-5",
             max_tokens=500,
             system=SYSTEM_PROMPT,
@@ -92,27 +113,42 @@ def run_account_agent(
                 continue
 
             args = dict(block.input)
-            args["user_id"] = user_id  # inject verified user_id server-side; never trust the LLM to supply it
+            args["user_id"] = (
+                user_id  # inject verified user_id server-side; never trust the LLM to supply it
+            )
 
             if block.name == "get_balance":
                 result = get_balance(**args)
             elif block.name == "get_transaction_history":
                 result = get_transaction_history(**args)
             elif block.name == "recall_previous_session":
-                summary = get_last_session_summary_for_user(user_id, exclude_session_id=session_id)
-                result = summary if summary else {"error": "No previous session found for this user."}
+                summary = get_last_session_summary_for_user(
+                    user_id, exclude_session_id=session_id
+                )
+                result = (
+                    summary
+                    if summary
+                    else {"error": "No previous session found for this user."}
+                )
             else:
                 result = {"error": f"Unknown tool {block.name}"}
 
-            tool_log.append({
-                "turn": turn, "agent": "account_agent", "tool": block.name,
-                "args": block.input, "result_summary": str(result)[:120],
-            })
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": str(result),
-            })
+            tool_log.append(
+                {
+                    "turn": turn,
+                    "agent": "account_agent",
+                    "tool": block.name,
+                    "args": block.input,
+                    "result_summary": str(result)[:120],
+                }
+            )
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": str(result),
+                }
+            )
         messages.append({"role": "user", "content": tool_results})
 
     return "I'm having trouble completing that lookup right now — please try again shortly."

@@ -12,8 +12,19 @@ supervisor's classification is compromised, it has no tools to abuse.
 
 import json
 from anthropic import Anthropic
+from config import require_llm_config
 
-client = Anthropic()
+_anthropic_client = None
+
+
+def get_client():
+    """Create the Anthropic client lazily after config validation."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        config = require_llm_config()
+        _anthropic_client = Anthropic(api_key=config.api_key)
+    return _anthropic_client
+
 
 SYSTEM_PROMPT = """You are a routing classifier for a bank customer support system.
 Classify the user's message into exactly one category:
@@ -34,7 +45,7 @@ No other text.
 
 
 def classify_intent(user_message: str) -> str:
-    response = client.messages.create(
+    response = get_client().messages.create(
         model="claude-sonnet-4-5",
         max_tokens=50,
         system=SYSTEM_PROMPT,

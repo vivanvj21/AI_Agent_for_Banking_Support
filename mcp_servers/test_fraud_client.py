@@ -32,7 +32,9 @@ def _find_card_for_user(user_id: str) -> str:
     ).fetchone()
     conn.close()
     if row is None:
-        raise RuntimeError(f"No card found for {user_id} — run db/seed_synthetic_data.py first.")
+        raise RuntimeError(
+            f"No card found for {user_id} — run db/seed_synthetic_data.py first."
+        )
     return row[0]
 
 
@@ -55,15 +57,23 @@ async def main():
                 print(f"  - {tool.name}")
 
             print(f"\nLocking card {card_id} as its owner (U1002)...")
-            result = await session.call_tool("lock_card", {"user_id": "U1002", "card_id": card_id})
+            result = await session.call_tool(
+                "lock_card", {"user_id": "U1002", "card_id": card_id}
+            )
             print("Result:", result.content[0].text)
 
-            print(f"\nAttempting to lock the SAME card as a different user (U1003) — should fail...")
-            result2 = await session.call_tool("lock_card", {"user_id": "U1003", "card_id": card_id})
+            print(
+                "\nAttempting to lock the SAME card as a different user (U1003) — should fail..."
+            )
+            result2 = await session.call_tool(
+                "lock_card", {"user_id": "U1003", "card_id": card_id}
+            )
             print("Result:", result2.content[0].text)
 
             print(f"\nUnlocking card {card_id} as its rightful owner (U1002)...")
-            result3 = await session.call_tool("unlock_card", {"user_id": "U1002", "card_id": card_id})
+            result3 = await session.call_tool(
+                "unlock_card", {"user_id": "U1002", "card_id": card_id}
+            )
             print("Result:", result3.content[0].text)
 
 

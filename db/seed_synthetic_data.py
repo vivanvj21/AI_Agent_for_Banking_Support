@@ -9,6 +9,7 @@ Seeds db/bank.db with small, deterministic synthetic data:
 Run: python db/seed_synthetic_data.py
 """
 
+import argparse
 import sqlite3
 import hashlib
 import random
@@ -22,7 +23,16 @@ SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 FIRST_NAMES = ["Aarav", "Vishnu", "Priya", "Kabir", "Ananya", "Rohan", "Meera", "Dev"]
 LAST_NAMES = ["Sharma", "Reddy", "Iyer", "Nair", "Gupta", "Rao", "Menon", "Kumar"]
-MERCHANTS = ["Amazon", "Swiggy", "Zomato", "BigBasket", "Uber", "IRCTC", "Flipkart", "Netflix"]
+MERCHANTS = [
+    "Amazon",
+    "Swiggy",
+    "Zomato",
+    "BigBasket",
+    "Uber",
+    "IRCTC",
+    "Flipkart",
+    "Netflix",
+]
 FOREIGN_MERCHANTS = ["AliExpress-CN", "Steam-LU", "UnknownVendor-RU"]
 
 
@@ -43,12 +53,12 @@ def seed_users(conn, n=8):
         last = LAST_NAMES[i - 1]
         email = f"{first.lower()}.{last.lower()}@example.com"
         pin = f"{1000 + i * 111}"  # deterministic demo PIN, e.g. 1111, 1222...
-        created = (datetime.now() - timedelta(days=random.randint(200, 1200))).isoformat()
+        created = (
+            datetime.now() - timedelta(days=random.randint(200, 1200))
+        ).isoformat()
         users.append((uid, first, last, email, hash_pin(pin), created))
         print(f"  {uid}: {first} {last} — demo PIN {pin}")
-    conn.executemany(
-        "INSERT INTO users VALUES (?,?,?,?,?,?)", users
-    )
+    conn.executemany("INSERT INTO users VALUES (?,?,?,?,?,?)", users)
     return [u[0] for u in users]
 
 
@@ -58,7 +68,9 @@ def seed_accounts_and_cards(conn, user_ids):
     acc_counter = 2001
     card_counter = 3001
     for uid in user_ids:
-        types = random.sample(["checking", "savings", "credit"], k=random.choice([2, 3]))
+        types = random.sample(
+            ["checking", "savings", "credit"], k=random.choice([2, 3])
+        )
         for t in types:
             aid = f"A{acc_counter}"
             acc_counter += 1
@@ -91,7 +103,9 @@ def seed_transactions(conn, account_ids, per_account=(15, 30)):
         for _ in range(n):
             days_ago = random.randint(0, 180)
             ts = now - timedelta(days=days_ago, hours=random.randint(0, 23))
-            txn_type = random.choice(["deposit", "withdrawal", "purchase", "transfer", "fee", "interest"])
+            txn_type = random.choice(
+                ["deposit", "withdrawal", "purchase", "transfer", "fee", "interest"]
+            )
             merchant = random.choice(MERCHANTS) if txn_type == "purchase" else None
             flagged = 0
 
@@ -108,7 +122,9 @@ def seed_transactions(conn, account_ids, per_account=(15, 30)):
 
             # Inject occasional fraud-pattern transactions (~4% of rows)
             if random.random() < 0.04:
-                pattern = random.choice(["odd_hour_large", "foreign_merchant", "structuring"])
+                pattern = random.choice(
+                    ["odd_hour_large", "foreign_merchant", "structuring"]
+                )
                 if pattern == "odd_hour_large":
                     ts = ts.replace(hour=random.choice([1, 2, 3, 4]))
                     amount = -round(random.uniform(20000, 90000), 2)
@@ -121,19 +137,38 @@ def seed_transactions(conn, account_ids, per_account=(15, 30)):
                     amount = -round(random.choice([9999, 9500, 9900]), 2)
                 flagged = 1
 
-            txns.append((
-                f"T{txn_counter}", aid, txn_type, amount, merchant, ts.isoformat(), flagged
-            ))
+            txns.append(
+                (
+                    f"T{txn_counter}",
+                    aid,
+                    txn_type,
+                    amount,
+                    merchant,
+                    ts.isoformat(),
+                    flagged,
+                )
+            )
             txn_counter += 1
 
-    conn.executemany(
-        "INSERT INTO transactions VALUES (?,?,?,?,?,?,?)", txns
-    )
+    conn.executemany("INSERT INTO transactions VALUES (?,?,?,?,?,?,?)", txns)
     return len(txns)
 
 
 def main():
-    if DB_PATH.exists():
+    parser = argparse.ArgumentParser(description="Seed the demo banking database.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Delete and recreate db/bank.db before seeding. Never use with production data.",
+    )
+    args = parser.parse_args()
+
+    if DB_PATH.exists() and not args.force:
+        print(f"Database already exists at {DB_PATH}; preserving existing data.")
+        print("Use --force to delete and recreate the demo database.")
+        return
+
+    if DB_PATH.exists() and args.force:
         DB_PATH.unlink()
         print(f"Removed existing {DB_PATH}")
 
@@ -152,7 +187,10 @@ def main():
     conn.commit()
     conn.close()
 
-    print(f"\nDone. {len(user_ids)} users, {len(account_ids)} accounts, {n_txns} transactions -> {DB_PATH}")
+    print(
+        f"\nDone. {len(user_ids)} users, {len(account_ids)} accounts, "
+        f"{n_txns} transactions -> {DB_PATH}"
+    )
 
 
 if __name__ == "__main__":

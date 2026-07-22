@@ -43,7 +43,9 @@ async def main():
                 if hasattr(block, "text"):
                     print("Result:", block.text)
 
-            print("\nCalling get_transaction_history(user_id='U1002', limit=3) over MCP...")
+            print(
+                "\nCalling get_transaction_history(user_id='U1002', limit=3) over MCP..."
+            )
             result2 = await session.call_tool(
                 "get_transaction_history", {"user_id": "U1002", "limit": 3}
             )

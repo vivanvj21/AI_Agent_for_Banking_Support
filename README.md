@@ -100,10 +100,16 @@ image viewer — GitHub also renders SVGs inline).
 
 ```bash
 pip install -r requirements.txt
-python db/seed_synthetic_data.py            # creates db/bank.db with 8 users, accounts, transactions
-python -c "from tools.faq_search import build_index; build_index()"   # builds the Chroma FAQ index
 export ANTHROPIC_API_KEY=sk-ant-...
 python cli.py
+```
+
+On startup, the CLI and Streamlit app automatically create the SQLite schema,
+seed demo data only if the banking tables are empty, and refresh the FAQ Chroma
+index. To validate local setup without an API key, run:
+
+```bash
+python cli.py --check-startup
 ```
 
 Or with Docker:
@@ -113,6 +119,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 docker compose up --build
 # Streamlit UI at http://localhost:8501
 ```
+
+The container performs the same idempotent runtime initialization, so mounted
+`db/`, `knowledge_base/chroma_store/`, and `logs/` volumes are preserved across
+restarts.
 
 Demo users (see `db/seed_synthetic_data.py` output): `U1001`..`U1008` with PINs
 `1111`, `1222`, `1333`, ... (increment by 111, matching the user number).
@@ -170,7 +180,7 @@ as if it were semantic search.
 ## Testing & evaluation
 
 ```bash
-python -m pytest tests/test_tools.py -v          # unit tests, no API key needed
+python -m pytest                                # offline tests, no API key needed
 python tests/test_conversations.py                # scripted eval, needs ANTHROPIC_API_KEY
 ```
 
