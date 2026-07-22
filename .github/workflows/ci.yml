@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Seed demo database
+        run: python db/seed_synthetic_data.py
+
+      - name: Run tool-layer unit tests (no API key required)
+        run: python -m pytest tests/test_tools.py -v
+
+      - name: Verify graph compiles
+        run: python -c "from graph import build_graph; build_graph(); print('Graph compiled OK')"
+
+  conversation-eval:
+    runs-on: ubuntu-latest
+    # Manual/optional job: only runs when explicitly triggered, since it
+    # spends real Anthropic API credits. Requires ANTHROPIC_API_KEY secret.
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python db/seed_synthetic_data.py
+      - run: python -c "from tools.faq_search import build_index; build_index()"
+      - name: Run scripted conversation eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python tests/test_conversations.py

@@ -1,0 +1,8 @@
+anthropic>=0.117.0
+langgraph>=1.2.0
+chromadb>=1.5.0
+numpy>=2.0.0
+pytest>=8.0.0
+streamlit>=1.38.0
+voyageai>=0.3.0  # optional: only needed if using VoyageEmbeddingProvider in tools/embeddings.py
+mcp>=1.28.0      # optional: only needed for mcp_servers/ — not used by the core LangGraph app

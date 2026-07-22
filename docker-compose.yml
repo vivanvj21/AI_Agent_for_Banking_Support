@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  bank-assistant:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY:-}
+    volumes:
+      - ./db:/app/db
+      - ./knowledge_base/chroma_store:/app/knowledge_base/chroma_store

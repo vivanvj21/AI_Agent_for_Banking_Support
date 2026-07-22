@@ -1,0 +1,159 @@
+"""
+Seeds db/bank.db with small, deterministic synthetic data:
+- 8 users, 1-2 accounts each, 1 card per checking/credit account
+- ~30 transactions per account, with a handful flagged as fraud patterns
+  (reusing the same "5 fraud pattern" idea from the Transaction Fraud Detector
+  project: large odd-hour purchase, rapid repeat charges, foreign merchant,
+  round-number structuring, sudden balance drain)
+
+Run: python db/seed_synthetic_data.py
+"""
+
+import sqlite3
+import hashlib
+import random
+from datetime import datetime, timedelta
+from pathlib import Path
+
+random.seed(42)
+
+DB_PATH = Path(__file__).parent / "bank.db"
+SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+
+FIRST_NAMES = ["Aarav", "Vishnu", "Priya", "Kabir", "Ananya", "Rohan", "Meera", "Dev"]
+LAST_NAMES = ["Sharma", "Reddy", "Iyer", "Nair", "Gupta", "Rao", "Menon", "Kumar"]
+MERCHANTS = ["Amazon", "Swiggy", "Zomato", "BigBasket", "Uber", "IRCTC", "Flipkart", "Netflix"]
+FOREIGN_MERCHANTS = ["AliExpress-CN", "Steam-LU", "UnknownVendor-RU"]
+
+
+def hash_pin(pin: str) -> str:
+    return hashlib.sha256(pin.encode()).hexdigest()
+
+
+def build_schema(conn):
+    with open(SCHEMA_PATH) as f:
+        conn.executescript(f.read())
+
+
+def seed_users(conn, n=8):
+    users = []
+    for i in range(1, n + 1):
+        uid = f"U100{i}"
+        first = FIRST_NAMES[i - 1]
+        last = LAST_NAMES[i - 1]
+        email = f"{first.lower()}.{last.lower()}@example.com"
+        pin = f"{1000 + i * 111}"  # deterministic demo PIN, e.g. 1111, 1222...
+        created = (datetime.now() - timedelta(days=random.randint(200, 1200))).isoformat()
+        users.append((uid, first, last, email, hash_pin(pin), created))
+        print(f"  {uid}: {first} {last} — demo PIN {pin}")
+    conn.executemany(
+        "INSERT INTO users VALUES (?,?,?,?,?,?)", users
+    )
+    return [u[0] for u in users]
+
+
+def seed_accounts_and_cards(conn, user_ids):
+    accounts = []
+    cards = []
+    acc_counter = 2001
+    card_counter = 3001
+    for uid in user_ids:
+        types = random.sample(["checking", "savings", "credit"], k=random.choice([2, 3]))
+        for t in types:
+            aid = f"A{acc_counter}"
+            acc_counter += 1
+            if t == "checking":
+                balance = round(random.uniform(5000, 80000), 2)
+            elif t == "savings":
+                balance = round(random.uniform(20000, 500000), 2)
+            else:  # credit — balance represents amount owed, positive = owed
+                balance = round(random.uniform(0, 60000), 2)
+            accounts.append((aid, uid, t, balance, "INR", 1))
+
+            if t in ("checking", "credit"):
+                cid = f"C{card_counter}"
+                card_counter += 1
+                last4 = f"{random.randint(1000,9999)}"
+                cards.append((cid, aid, last4, "active"))
+
+    conn.executemany("INSERT INTO accounts VALUES (?,?,?,?,?,?)", accounts)
+    conn.executemany("INSERT INTO cards VALUES (?,?,?,?)", cards)
+    return [a[0] for a in accounts]
+
+
+def seed_transactions(conn, account_ids, per_account=(15, 30)):
+    txns = []
+    txn_counter = 900001
+    now = datetime.now()
+
+    for aid in account_ids:
+        n = random.randint(*per_account)
+        for _ in range(n):
+            days_ago = random.randint(0, 180)
+            ts = now - timedelta(days=days_ago, hours=random.randint(0, 23))
+            txn_type = random.choice(["deposit", "withdrawal", "purchase", "transfer", "fee", "interest"])
+            merchant = random.choice(MERCHANTS) if txn_type == "purchase" else None
+            flagged = 0
+
+            if txn_type == "deposit":
+                amount = round(random.uniform(500, 20000), 2)
+            elif txn_type in ("withdrawal", "purchase"):
+                amount = -round(random.uniform(50, 5000), 2)
+            elif txn_type == "transfer":
+                amount = round(random.uniform(-10000, 10000), 2)
+            elif txn_type == "fee":
+                amount = -round(random.uniform(10, 200), 2)
+            else:  # interest
+                amount = round(random.uniform(1, 50), 2)
+
+            # Inject occasional fraud-pattern transactions (~4% of rows)
+            if random.random() < 0.04:
+                pattern = random.choice(["odd_hour_large", "foreign_merchant", "structuring"])
+                if pattern == "odd_hour_large":
+                    ts = ts.replace(hour=random.choice([1, 2, 3, 4]))
+                    amount = -round(random.uniform(20000, 90000), 2)
+                    txn_type, merchant = "purchase", random.choice(MERCHANTS)
+                elif pattern == "foreign_merchant":
+                    txn_type, merchant = "purchase", random.choice(FOREIGN_MERCHANTS)
+                    amount = -round(random.uniform(5000, 40000), 2)
+                else:  # structuring: suspiciously round numbers just under typical thresholds
+                    txn_type, merchant = "withdrawal", None
+                    amount = -round(random.choice([9999, 9500, 9900]), 2)
+                flagged = 1
+
+            txns.append((
+                f"T{txn_counter}", aid, txn_type, amount, merchant, ts.isoformat(), flagged
+            ))
+            txn_counter += 1
+
+    conn.executemany(
+        "INSERT INTO transactions VALUES (?,?,?,?,?,?,?)", txns
+    )
+    return len(txns)
+
+
+def main():
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+        print(f"Removed existing {DB_PATH}")
+
+    conn = sqlite3.connect(DB_PATH)
+    build_schema(conn)
+
+    print("Seeding users...")
+    user_ids = seed_users(conn)
+
+    print("Seeding accounts + cards...")
+    account_ids = seed_accounts_and_cards(conn, user_ids)
+
+    print("Seeding transactions...")
+    n_txns = seed_transactions(conn, account_ids)
+
+    conn.commit()
+    conn.close()
+
+    print(f"\nDone. {len(user_ids)} users, {len(account_ids)} accounts, {n_txns} transactions -> {DB_PATH}")
+
+
+if __name__ == "__main__":
+    main()
