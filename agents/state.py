@@ -6,7 +6,6 @@ for the eval harness and the tool_calls_log deliverable.
 from typing import TypedDict, Literal, Optional
 from typing_extensions import NotRequired
 
-
 Intent = Literal["search", "account", "fraud", "unclear"]
 
 
@@ -20,7 +19,7 @@ class ToolCallLogEntry(TypedDict):
 
 class AgentState(TypedDict):
     # conversation
-    messages: list[dict]        # [{"role": "user"/"assistant", "content": "..."}]
+    messages: list[dict]  # [{"role": "user"/"assistant", "content": "..."}]
     turn: int
 
     # memory / persistence -- see tools/memory.py

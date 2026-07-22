@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.server.fastmcp import FastMCP
+from mcp_servers.common import safe_mcp_call
 from tools.account_tools import get_balance as _get_balance
 from tools.account_tools import get_transaction_history as _get_transaction_history
 
@@ -38,16 +39,26 @@ def get_balance(user_id: str, account_id: str | None = None) -> dict:
     Get balance for a specific account, or all accounts for a user if
     account_id is omitted. Wraps tools.account_tools.get_balance unchanged.
     """
-    return _get_balance(user_id=user_id, account_id=account_id)
+    return safe_mcp_call(
+        "get_balance", _get_balance, user_id=user_id, account_id=account_id
+    )
 
 
 @mcp.tool()
-def get_transaction_history(user_id: str, account_id: str | None = None, limit: int = 10) -> dict:
+def get_transaction_history(
+    user_id: str, account_id: str | None = None, limit: int = 10
+) -> dict:
     """
     Get recent transactions for a user, optionally scoped to one account.
     Wraps tools.account_tools.get_transaction_history unchanged.
     """
-    return _get_transaction_history(user_id=user_id, account_id=account_id, limit=limit)
+    return safe_mcp_call(
+        "get_transaction_history",
+        _get_transaction_history,
+        user_id=user_id,
+        account_id=account_id,
+        limit=limit,
+    )
 
 
 if __name__ == "__main__":

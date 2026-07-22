@@ -2,9 +2,9 @@
 """
 Verify CLI can start and respond to a simple query
 """
+
 import sys
 import subprocess
-import time
 
 # Send a simple query and exit
 print("Testing CLI execution...")
@@ -16,7 +16,7 @@ proc = subprocess.Popen(
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
     text=True,
-    cwd="."
+    cwd=".",
 )
 
 # Send query and exit command

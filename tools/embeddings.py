@@ -18,6 +18,7 @@ OpenAI/Cohere provider) for anything beyond local development.
 
 from abc import ABC, abstractmethod
 import hashlib
+import importlib.util
 import os
 import sys
 import numpy as np
@@ -51,12 +52,12 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
     """
 
     def __init__(self, model: str | None = None):
-        try:
-            import voyageai
-        except ImportError as e:
+        if importlib.util.find_spec("voyageai") is None:
             raise ImportError(
                 "voyageai package not installed. Run: pip install voyageai"
-            ) from e
+            )
+        import voyageai
+
         api_key = os.environ.get("VOYAGE_API_KEY")
         if not api_key:
             raise RuntimeError("VOYAGE_API_KEY environment variable is not set.")

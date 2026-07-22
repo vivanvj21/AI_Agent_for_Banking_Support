@@ -11,8 +11,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tools.account_tools import verify_identity, get_balance, get_transaction_history, mask_account_number
-from tools.fraud_tools import lock_card, unlock_card, report_card_lost, report_fraud_transaction, get_flagged_transactions
+from tools.account_tools import (
+    verify_identity,
+    get_balance,
+    get_transaction_history,
+    mask_account_number,
+)
+from tools.fraud_tools import (
+    lock_card,
+    unlock_card,
+    report_fraud_transaction,
+    get_flagged_transactions,
+)
 
 DB_PATH = Path(__file__).parent.parent / "db" / "bank.db"
 
@@ -30,7 +40,9 @@ def known_card(known_user):
         (known_user,),
     ).fetchone()
     conn.close()
-    assert row is not None, "Seed data must include at least one card for U1002 — run db/seed_synthetic_data.py"
+    assert (
+        row is not None
+    ), "Seed data must include at least one card for U1002 — run db/seed_synthetic_data.py"
     return row[0]
 
 

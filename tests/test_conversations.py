@@ -28,7 +28,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from graph import build_graph, new_session_state
 
-
 CASES = [
     {
         "name": "faq_lost_card",
@@ -70,7 +69,9 @@ CASES = [
         "turns": ["What's my balance? U1002, 9999"],
         "expected_intent": "account",
         "expected_tools": set(),
-        "check": lambda reply: "match" in reply.lower() or "verify" in reply.lower() or "pin" in reply.lower(),
+        "check": lambda reply: "match" in reply.lower()
+        or "verify" in reply.lower()
+        or "pin" in reply.lower(),
     },
     {
         "name": "greeting_clarify",
@@ -96,7 +97,11 @@ def run_case(case):
 
     intent_ok = state.get("intent") == case["expected_intent"]
     called_tools = {entry["tool"] for entry in state["tool_calls_log"]}
-    tools_ok = case["expected_tools"].issubset(called_tools) if case["expected_tools"] else len(called_tools) == 0
+    tools_ok = (
+        case["expected_tools"].issubset(called_tools)
+        if case["expected_tools"]
+        else len(called_tools) == 0
+    )
     reply_ok = case["check"](state.get("reply") or "")
 
     success = intent_ok and tools_ok and reply_ok
@@ -124,15 +129,25 @@ def main():
 
     print(f"{'CASE':<28} {'SUCCESS':<8} {'INTENT':<8} {'TOOLS':<8} {'LATENCY(s)':<10}")
     for r in results:
-        print(f"{r['name']:<28} {str(r['success']):<8} {str(r['intent_ok']):<8} {str(r['tools_ok']):<8} {r['latency_s']:<10}")
+        print(
+            f"{r['name']:<28} {str(r['success']):<8} {str(r['intent_ok']):<8} {str(r['tools_ok']):<8} {r['latency_s']:<10}"
+        )
         if not r["success"]:
-            print(f"    -> intent={r['actual_intent']} tools={r['actual_tools']} reply={r['reply']!r}")
+            print(
+                f"    -> intent={r['actual_intent']} tools={r['actual_tools']} reply={r['reply']!r}"
+            )
 
     print("\n--- Summary ---")
-    print(f"Task Success Rate: {success_rate:.0%} ({sum(r['success'] for r in results)}/{n})")
-    print(f"Tool-Use Accuracy: {tool_accuracy:.0%} ({sum(r['tools_ok'] for r in results)}/{n})")
-    print(f"Latency — p50: {statistics.median(latencies):.2f}s, "
-          f"max: {max(latencies):.2f}s, mean: {statistics.mean(latencies):.2f}s")
+    print(
+        f"Task Success Rate: {success_rate:.0%} ({sum(r['success'] for r in results)}/{n})"
+    )
+    print(
+        f"Tool-Use Accuracy: {tool_accuracy:.0%} ({sum(r['tools_ok'] for r in results)}/{n})"
+    )
+    print(
+        f"Latency — p50: {statistics.median(latencies):.2f}s, "
+        f"max: {max(latencies):.2f}s, mean: {statistics.mean(latencies):.2f}s"
+    )
 
     return results
 

@@ -12,6 +12,7 @@ data leak.
 """
 
 from anthropic import Anthropic
+from config import require_llm_config
 from tools.fraud_tools import (
     lock_card,
     unlock_card,
@@ -20,7 +21,17 @@ from tools.fraud_tools import (
     get_flagged_transactions,
 )
 
-client = Anthropic()
+_anthropic_client = None
+
+
+def get_client():
+    """Create the Anthropic client lazily after config validation."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        config = require_llm_config()
+        _anthropic_client = Anthropic(api_key=config.api_key)
+    return _anthropic_client
+
 
 TOOLS = [
     {
@@ -28,7 +39,9 @@ TOOLS = [
         "description": "Instantly lock a card belonging to the verified user. Reversible — can be unlocked later.",
         "input_schema": {
             "type": "object",
-            "properties": {"card_id": {"type": "string", "description": "Card ID, e.g. 'C3001'."}},
+            "properties": {
+                "card_id": {"type": "string", "description": "Card ID, e.g. 'C3001'."}
+            },
             "required": ["card_id"],
         },
     },
@@ -57,7 +70,10 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "transaction_id": {"type": "string"},
-                "reason": {"type": "string", "description": "Brief reason the transaction looks fraudulent."},
+                "reason": {
+                    "type": "string",
+                    "description": "Brief reason the transaction looks fraudulent.",
+                },
             },
             "required": ["transaction_id"],
         },
@@ -89,11 +105,13 @@ Rules:
 """
 
 
-def run_fraud_agent(user_message: str, user_id: str, tool_log: list, turn: int, max_tool_iters: int = 3) -> str:
+def run_fraud_agent(
+    user_message: str, user_id: str, tool_log: list, turn: int, max_tool_iters: int = 3
+) -> str:
     messages = [{"role": "user", "content": user_message}]
 
     for _ in range(max_tool_iters):
-        response = client.messages.create(
+        response = get_client().messages.create(
             model="claude-sonnet-4-5",
             max_tokens=500,
             system=SYSTEM_PROMPT,
@@ -112,7 +130,9 @@ def run_fraud_agent(user_message: str, user_id: str, tool_log: list, turn: int, 
                 continue
 
             args = dict(block.input)
-            args["user_id"] = user_id  # server-injected, never trust LLM-supplied user_id
+            args["user_id"] = (
+                user_id  # server-injected, never trust LLM-supplied user_id
+            )
 
             fn_map = {
                 "lock_card": lock_card,
@@ -124,15 +144,22 @@ def run_fraud_agent(user_message: str, user_id: str, tool_log: list, turn: int, 
             fn = fn_map.get(block.name)
             result = fn(**args) if fn else {"error": f"Unknown tool {block.name}"}
 
-            tool_log.append({
-                "turn": turn, "agent": "fraud_agent", "tool": block.name,
-                "args": block.input, "result_summary": str(result)[:120],
-            })
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": str(result),
-            })
+            tool_log.append(
+                {
+                    "turn": turn,
+                    "agent": "fraud_agent",
+                    "tool": block.name,
+                    "args": block.input,
+                    "result_summary": str(result)[:120],
+                }
+            )
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": str(result),
+                }
+            )
         messages.append({"role": "user", "content": tool_results})
 
     return "I'm having trouble completing that action right now — for your safety, please contact support directly."

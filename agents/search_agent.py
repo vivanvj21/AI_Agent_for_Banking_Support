@@ -5,9 +5,20 @@ ask "what happens if I lose my card" without proving who they are.
 """
 
 from anthropic import Anthropic
+from config import require_llm_config
 from tools.faq_search import search_faq
 
-client = Anthropic()
+_anthropic_client = None
+
+
+def get_client():
+    """Create the Anthropic client lazily after config validation."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        config = require_llm_config()
+        _anthropic_client = Anthropic(api_key=config.api_key)
+    return _anthropic_client
+
 
 TOOLS = [
     {
@@ -72,7 +83,7 @@ def run_search_agent(
     messages = [{"role": "user", "content": user_message}]
 
     for _ in range(max_tool_iters):
-        response = client.messages.create(
+        response = get_client().messages.create(
             model="claude-sonnet-4-5",
             max_tokens=500,
             system=SYSTEM_PROMPT,

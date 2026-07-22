@@ -9,10 +9,13 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from db.init_db import ensure_database
+
 DB_PATH = Path(__file__).parent.parent / "db" / "bank.db"
 
 
 def _connect():
+    ensure_database(DB_PATH, seed_demo_data=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -56,7 +59,9 @@ def unlock_card(user_id: str, card_id: str) -> dict:
         return {"error": f"Card {card_id} not found for this user."}
     if row["status"] == "reported_lost":
         conn.close()
-        return {"error": "This card was reported lost/stolen and cannot be unlocked. It must be replaced."}
+        return {
+            "error": "This card was reported lost/stolen and cannot be unlocked. It must be replaced."
+        }
 
     conn.execute("UPDATE cards SET status = 'active' WHERE card_id = ?", (card_id,))
     conn.commit()
@@ -76,13 +81,21 @@ def report_card_lost(user_id: str, card_id: str) -> dict:
         conn.close()
         return {"error": f"Card {card_id} not found for this user."}
 
-    conn.execute("UPDATE cards SET status = 'reported_lost' WHERE card_id = ?", (card_id,))
+    conn.execute(
+        "UPDATE cards SET status = 'reported_lost' WHERE card_id = ?", (card_id,)
+    )
     conn.commit()
     conn.close()
-    return {"status": "reported_lost", "card_id": card_id, "note": "Replacement will be issued in 5-7 business days."}
+    return {
+        "status": "reported_lost",
+        "card_id": card_id,
+        "note": "Replacement will be issued in 5-7 business days.",
+    }
 
 
-def report_fraud_transaction(user_id: str, transaction_id: str, reason: str = "") -> dict:
+def report_fraud_transaction(
+    user_id: str, transaction_id: str, reason: str = ""
+) -> dict:
     """Flag a specific transaction as fraudulent for investigation."""
     conn = _connect()
     row = conn.execute(
