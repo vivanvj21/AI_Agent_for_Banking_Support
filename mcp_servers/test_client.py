@@ -28,30 +28,30 @@ async def main():
         args=[str(Path(__file__).parent / "account_server.py")],
     )
 
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
+    async with (
+        stdio_client(server_params) as (read, write),
+        ClientSession(read, write) as session,
+    ):
+        await session.initialize()
 
-            tools_result = await session.list_tools()
-            print("Tools advertised by the MCP server:")
-            for tool in tools_result.tools:
-                print(f"  - {tool.name}: {tool.description}")
+        tools_result = await session.list_tools()
+        print("Tools advertised by the MCP server:")
+        for tool in tools_result.tools:
+            print(f"  - {tool.name}: {tool.description}")
 
-            print("\nCalling get_balance(user_id='U1002') over MCP...")
-            result = await session.call_tool("get_balance", {"user_id": "U1002"})
-            for block in result.content:
-                if hasattr(block, "text"):
-                    print("Result:", block.text)
+        print("\nCalling get_balance(user_id='U1002') over MCP...")
+        result = await session.call_tool("get_balance", {"user_id": "U1002"})
+        for block in result.content:
+            if hasattr(block, "text"):
+                print("Result:", block.text)
 
-            print(
-                "\nCalling get_transaction_history(user_id='U1002', limit=3) over MCP..."
-            )
-            result2 = await session.call_tool(
-                "get_transaction_history", {"user_id": "U1002", "limit": 3}
-            )
-            for block in result2.content:
-                if hasattr(block, "text"):
-                    print("Result:", block.text)
+        print("\nCalling get_transaction_history(user_id='U1002', limit=3) over MCP...")
+        result2 = await session.call_tool(
+            "get_transaction_history", {"user_id": "U1002", "limit": 3}
+        )
+        for block in result2.content:
+            if hasattr(block, "text"):
+                print("Result:", block.text)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ ownership here too, since a tool should never trust its caller blindly).
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from db.connection import DB_PATH, get_connection
 from db.init_db import ensure_database
@@ -121,7 +121,7 @@ def report_fraud_transaction(
             (transaction_id,),
         )
         conn.commit()
-        reported_at = datetime.now().isoformat()
+        reported_at = datetime.now(timezone.utc).isoformat()
         LOGGER.info(
             "fraud_transaction_reported",
             extra={

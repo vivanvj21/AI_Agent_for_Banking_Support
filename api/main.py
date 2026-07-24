@@ -37,7 +37,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001
+async def lifespan(app: FastAPI):
     """Application lifespan: run startup logic, yield, then run shutdown logic.
 
     Replaces the deprecated ``@app.on_event("startup")`` pattern.  Startup
@@ -91,7 +91,7 @@ def metrics() -> MetricsResponse:
 
 
 @app.exception_handler(Exception)
-def unhandled_exception_handler(request, exc):  # noqa: ANN001, ARG001
+def unhandled_exception_handler(request, exc):
     LOGGER.exception("api_unhandled_exception")
     return JSONResponse(
         status_code=500,

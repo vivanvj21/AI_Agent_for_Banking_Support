@@ -253,7 +253,8 @@ def test_section_citation_format(isolated_faq_index):
 
 def test_tags_derived_from_headings(isolated_faq_index):
     (isolated_faq_index / "fraud.md").write_text(
-        "# Fraud Reporting\n\nReport suspicious transactions promptly.", encoding="utf-8"
+        "# Fraud Reporting\n\nReport suspicious transactions promptly.",
+        encoding="utf-8",
     )
     faq_search.build_index(rebuild=True)
     hit = faq_search.search_faq("report transaction", k=1)["results"][0]
@@ -336,13 +337,18 @@ def test_rrf_fuse_top_result_is_consistent():
     fused = _rrf_fuse(
         [0, 1, 2], [0, 1, 2], n_total=3, dense_weight=0.65, bm25_weight=0.35, rrf_k=60
     )
-    best_idx, best_score = fused[0]
+    best_idx, _best_score = fused[0]
     assert best_idx == 0
 
 
 def test_rrf_fuse_scores_are_descending():
     fused = _rrf_fuse(
-        [0, 1, 2, 3], [3, 2, 1, 0], n_total=4, dense_weight=0.5, bm25_weight=0.5, rrf_k=60
+        [0, 1, 2, 3],
+        [3, 2, 1, 0],
+        n_total=4,
+        dense_weight=0.5,
+        bm25_weight=0.5,
+        rrf_k=60,
     )
     scores = [s for _, s in fused]
     assert scores == sorted(scores, reverse=True)
@@ -351,8 +357,12 @@ def test_rrf_fuse_scores_are_descending():
 def test_rrf_fuse_weight_influence():
     """Higher weight for a ranker should bias the fused ranking toward it."""
     # Dense: 0 is best. BM25: 1 is best.
-    dense_biased = _rrf_fuse([0, 1], [1, 0], n_total=2, dense_weight=0.9, bm25_weight=0.1, rrf_k=60)
-    bm25_biased = _rrf_fuse([0, 1], [1, 0], n_total=2, dense_weight=0.1, bm25_weight=0.9, rrf_k=60)
+    dense_biased = _rrf_fuse(
+        [0, 1], [1, 0], n_total=2, dense_weight=0.9, bm25_weight=0.1, rrf_k=60
+    )
+    bm25_biased = _rrf_fuse(
+        [0, 1], [1, 0], n_total=2, dense_weight=0.1, bm25_weight=0.9, rrf_k=60
+    )
     assert dense_biased[0][0] == 0  # dense weight dominant → index 0 wins
     assert bm25_biased[0][0] == 1  # BM25 weight dominant → index 1 wins
 
@@ -492,7 +502,8 @@ def test_near_duplicate_different_content_indexed_separately(isolated_faq_index)
         "# A\n\nLock your card if it is missing.", encoding="utf-8"
     )
     (isolated_faq_index / "b.md").write_text(
-        "# B\n\nLock your card if it is stolen.", encoding="utf-8"  # different last word
+        "# B\n\nLock your card if it is stolen.",
+        encoding="utf-8",  # different last word
     )
     result = faq_search.build_index(rebuild=True)
     assert result["chunks"] == 2

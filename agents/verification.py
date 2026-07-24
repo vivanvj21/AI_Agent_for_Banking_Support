@@ -10,6 +10,7 @@ session and passing them into the graph state; this module only checks them.
 """
 
 import re
+
 from tools.account_tools import verify_identity
 
 

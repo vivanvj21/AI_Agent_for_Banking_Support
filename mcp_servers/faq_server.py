@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.server.fastmcp import FastMCP
+
 from mcp_servers.common import safe_mcp_call
 from tools.faq_search import search_faq as _search_faq
 

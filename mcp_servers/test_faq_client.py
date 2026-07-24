@@ -27,19 +27,21 @@ async def main():
         args=[str(Path(__file__).parent / "faq_server.py")],
     )
 
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
+    async with (
+        stdio_client(server_params) as (read, write),
+        ClientSession(read, write) as session,
+    ):
+        await session.initialize()
 
-            tools_result = await session.list_tools()
-            print("Tools advertised by the MCP server:")
-            for tool in tools_result.tools:
-                print(f"  - {tool.name}: {tool.description}")
+        tools_result = await session.list_tools()
+        print("Tools advertised by the MCP server:")
+        for tool in tools_result.tools:
+            print(f"  - {tool.name}: {tool.description}")
 
-            query = "what happens if I lose my card"
-            print(f"\nCalling search_faq(query={query!r}) over MCP...")
-            result = await session.call_tool("search_faq", {"query": query, "k": 2})
-            print("Result:", result.content[0].text)
+        query = "what happens if I lose my card"
+        print(f"\nCalling search_faq(query={query!r}) over MCP...")
+        result = await session.call_tool("search_faq", {"query": query, "k": 2})
+        print("Result:", result.content[0].text)
 
 
 if __name__ == "__main__":

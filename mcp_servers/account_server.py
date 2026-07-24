@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.server.fastmcp import FastMCP
+
 from mcp_servers.common import safe_mcp_call
 from tools.account_tools import get_balance as _get_balance
 from tools.account_tools import get_transaction_history as _get_transaction_history

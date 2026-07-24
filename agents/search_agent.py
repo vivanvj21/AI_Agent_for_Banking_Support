@@ -5,6 +5,7 @@ ask "what happens if I lose my card" without proving who they are.
 """
 
 from anthropic import Anthropic
+
 from config import require_llm_config
 from tools.faq_search import search_faq
 

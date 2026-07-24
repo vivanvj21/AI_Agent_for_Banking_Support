@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import importlib.util
 import logging
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
+
+# LangSmith is imported lazily inside validate_startup so the application
+# continues to work even if the observability package has not been set up yet.
+_langsmith_initialized: bool = False
 
 ROOT_DIR = Path(__file__).parent
 REQUIRED_DIRECTORIES = (
@@ -85,8 +89,23 @@ def validate_startup(
     require_llm: bool = False, initialize: bool = True
 ) -> StartupStatus:
     """Validate directories, database, Chroma/index, memory, and optional LLM config."""
+    global _langsmith_initialized
     configure_logging()
     details: dict[str, str] = {}
+
+    # Initialize LangSmith tracing once per process.  Happens here so every
+    # entry-point (CLI, FastAPI, Streamlit) gets tracing without extra boiler
+    # plate -- and so tests can monkeypatch the env before calling this.
+    if not _langsmith_initialized:
+        try:
+            from observability.langsmith_config import configure_langsmith
+
+            tracing_on = configure_langsmith()
+            details["langsmith"] = "enabled" if tracing_on else "disabled"
+        except Exception:
+            LOGGER.debug("langsmith_init_skipped", exc_info=True)
+            details["langsmith"] = "disabled"
+        _langsmith_initialized = True
     try:
         ensure_directories()
         details["directories"] = "ok"

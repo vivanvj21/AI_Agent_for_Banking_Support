@@ -18,13 +18,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mcp.server.fastmcp import FastMCP
+
 from mcp_servers.common import safe_mcp_call
 from tools.fraud_tools import (
-    lock_card as _lock_card,
-    unlock_card as _unlock_card,
-    report_card_lost as _report_card_lost,
-    report_fraud_transaction as _report_fraud_transaction,
     get_flagged_transactions as _get_flagged_transactions,
+)
+from tools.fraud_tools import (
+    lock_card as _lock_card,
+)
+from tools.fraud_tools import (
+    report_card_lost as _report_card_lost,
+)
+from tools.fraud_tools import (
+    report_fraud_transaction as _report_fraud_transaction,
+)
+from tools.fraud_tools import (
+    unlock_card as _unlock_card,
 )
 
 mcp = FastMCP("bank-fraud-server")

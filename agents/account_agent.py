@@ -6,6 +6,7 @@ every tool call still re-checks row ownership in SQL as defense in depth.
 """
 
 from anthropic import Anthropic
+
 from config import require_llm_config
 from tools.account_tools import get_balance, get_transaction_history
 from tools.memory import get_last_session_summary_for_user

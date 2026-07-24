@@ -184,7 +184,9 @@ def _chunk_text(
     if max_chars <= 0:
         raise ValueError("max_chars must be positive")
     if overlap_chars < 0 or overlap_chars >= max_chars:
-        raise ValueError("overlap_chars must be non-negative and smaller than max_chars")
+        raise ValueError(
+            "overlap_chars must be non-negative and smaller than max_chars"
+        )
 
     paragraphs = [p.strip() for p in re.split(r"\n\n+", text) if p.strip()]
     chunks: list[str] = []
@@ -247,7 +249,9 @@ def _load_documents(
         raise RuntimeError(f"FAQ directory does not exist: {faq_dir}")
 
     documents: list[tuple[Path, str]] = []
-    for path in sorted(p for p in faq_dir.iterdir() if p.suffix.lower() in SUPPORTED_SUFFIXES):
+    for path in sorted(
+        p for p in faq_dir.iterdir() if p.suffix.lower() in SUPPORTED_SUFFIXES
+    ):
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8-sig")
@@ -299,7 +303,9 @@ def _document_chunks(
     seen_chunk_hashes: set[str] = set()
     chunks: list[DocumentChunk] = []
 
-    for path, text in _load_documents(faq_dir, max_document_chars=cfg.max_document_chars):
+    for path, text in _load_documents(
+        faq_dir, max_document_chars=cfg.max_document_chars
+    ):
         doc_hash = _sha256(text)
         source = path.stem
         doc_headings = _extract_headings(text)
@@ -369,7 +375,7 @@ def _get_or_create_collection(client):
 def _reset_collection(client):
     try:
         client.delete_collection(COLLECTION_NAME)
-    except Exception:
+    except Exception:  # noqa: BLE001
         LOGGER.debug("Collection %s did not exist before rebuild", COLLECTION_NAME)
     return client.create_collection(COLLECTION_NAME, embedding_function=None)
 
@@ -385,7 +391,9 @@ def _build_index(
     global _collection, _provider
     client = _get_client()
     _provider = get_default_provider()
-    _collection = _reset_collection(client) if rebuild else _get_or_create_collection(client)
+    _collection = (
+        _reset_collection(client) if rebuild else _get_or_create_collection(client)
+    )
 
     chunks = _document_chunks(faq_dir=faq_dir, cfg=cfg)
     if not chunks:
@@ -401,7 +409,9 @@ def _build_index(
         _collection.delete(ids=stale_ids)
         LOGGER.info("faq_index_pruned_stale_chunks", extra={"count": len(stale_ids)})
 
-    chunks_to_write = [chunk for chunk in chunks if rebuild or chunk.chunk_id not in current_ids]
+    chunks_to_write = [
+        chunk for chunk in chunks if rebuild or chunk.chunk_id not in current_ids
+    ]
     if chunks_to_write:
         embeddings = _provider.embed_batched([chunk.text for chunk in chunks_to_write])
         _collection.upsert(
@@ -463,7 +473,10 @@ def _mmr_order(
                 mmr_lambda * _cosine_similarity(query_embedding, embeddings[idx])
                 - (1 - mmr_lambda)
                 * max(
-                    (_cosine_similarity(embeddings[idx], embeddings[j]) for j in selected),
+                    (
+                        _cosine_similarity(embeddings[idx], embeddings[j])
+                        for j in selected
+                    ),
                     default=0.0,
                 )
             ),
@@ -488,7 +501,7 @@ def _bm25_scores(
     if not query_tokens:
         return [0.0] * len(all_texts)
     try:
-        from rank_bm25 import BM25Okapi  # noqa: PLC0415
+        from rank_bm25 import BM25Okapi
 
         corpus = [_tokenize_for_bm25(t) for t in all_texts]
         bm25 = BM25Okapi(corpus)
@@ -596,7 +609,9 @@ def search_faq(
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
     raw_embeddings = results.get("embeddings", [[]])[0]
-    embeddings = raw_embeddings.tolist() if hasattr(raw_embeddings, "tolist") else raw_embeddings
+    embeddings = (
+        raw_embeddings.tolist() if hasattr(raw_embeddings, "tolist") else raw_embeddings
+    )
     ids = results.get("ids", [[]])[0]
 
     if not docs:

@@ -3,8 +3,8 @@
 Verify CLI can start and respond to a simple query
 """
 
-import sys
 import subprocess
+import sys
 
 # Send a simple query and exit
 print("Testing CLI execution...")

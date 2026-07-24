@@ -64,7 +64,9 @@ class RAGConfig:
     returned to an LLM-facing agent."""
 
     # ── Supported file types ─────────────────────────────────────────────────
-    supported_suffixes: frozenset[str] = field(default_factory=lambda: frozenset({".md", ".txt"}))
+    supported_suffixes: frozenset[str] = field(
+        default_factory=lambda: frozenset({".md", ".txt"})
+    )
     """File extensions treated as FAQ source documents."""
 
 

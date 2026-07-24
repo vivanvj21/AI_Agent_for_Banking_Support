@@ -10,10 +10,10 @@ Run: python db/seed_synthetic_data.py
 """
 
 import argparse
-import sqlite3
 import random
+import sqlite3
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Allow running as a standalone script from the repo root.
@@ -47,7 +47,7 @@ def hash_pin(pin: str) -> str:
     import during the very first ``ensure_database`` call that happens before
     sys.path has been fully configured in some test environments.
     """
-    from tools.account_tools import hash_pin as _hash_pin  # noqa: PLC0415
+    from tools.account_tools import hash_pin as _hash_pin
 
     return _hash_pin(pin)
 
@@ -66,7 +66,7 @@ def seed_users(conn, n=8):
         email = f"{first.lower()}.{last.lower()}@example.com"
         pin = f"{1000 + i * 111}"  # deterministic demo PIN, e.g. 1111, 1222...
         created = (
-            datetime.now() - timedelta(days=random.randint(200, 1200))
+            datetime.now(timezone.utc) - timedelta(days=random.randint(200, 1200))
         ).isoformat()
         users.append((uid, first, last, email, hash_pin(pin), created))
         print(f"  {uid}: {first} {last} — demo PIN {pin}")
@@ -108,7 +108,7 @@ def seed_accounts_and_cards(conn, user_ids):
 def seed_transactions(conn, account_ids, per_account=(15, 30)):
     txns = []
     txn_counter = 900001
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     for aid in account_ids:
         n = random.randint(*per_account)

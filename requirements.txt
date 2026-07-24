@@ -11,3 +11,4 @@ uvicorn[standard]>=0.32.0
 pydantic>=2.9.0
 argon2-cffi>=23.1.0  # secure PIN hashing — replaces raw SHA-256
 rank-bm25>=0.2.2     # BM25 sparse retrieval for hybrid RAG
+langsmith>=0.1.0     # optional: LangSmith tracing — set LANGSMITH_TRACING=true to enable

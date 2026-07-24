@@ -4,24 +4,25 @@ run in CI without needing secrets — only the graph/agent integration tests
 (test_conversations.py) need ANTHROPIC_API_KEY.
 """
 
+import sqlite3
 import sys
 from pathlib import Path
-import sqlite3
+
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tools.account_tools import (
-    verify_identity,
     get_balance,
     get_transaction_history,
     mask_account_number,
+    verify_identity,
 )
 from tools.fraud_tools import (
-    lock_card,
-    unlock_card,
-    report_fraud_transaction,
     get_flagged_transactions,
+    lock_card,
+    report_fraud_transaction,
+    unlock_card,
 )
 
 DB_PATH = Path(__file__).parent.parent / "db" / "bank.db"

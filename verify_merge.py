@@ -38,7 +38,7 @@ def check_duplicates():
     for item in Path(".").rglob("*"):
         name = item.name
         if (
-            name.endswith("1.py")
+            name.endswith("1.py")  # noqa: PIE810
             or name.endswith("2.py")
             or name.endswith("1.md")
             or name.endswith("2.md")
@@ -88,11 +88,11 @@ def check_imports():
     failed = []
     for imp in imports:
         try:
-            exec(imp)
+            exec(imp)  # noqa: S102
             print(
                 f"✓ {imp.split('from ')[1] if 'from' in imp else imp.split('import ')[1]}"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(
                 f"✗ {imp.split('from ')[1] if 'from' in imp else imp.split('import ')[1]}: {e}"
             )
@@ -135,7 +135,7 @@ def check_database():
 
         conn.close()
         return all_good
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"✗ Database error: {e}")
         return False
 
@@ -156,7 +156,7 @@ def check_graph_structure():
         print(f"✓ Graph has {len(graph.edges)} edges")
 
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"✗ Graph compilation failed: {e}")
         return False
 
@@ -184,7 +184,7 @@ def check_memory_module():
             print(f"✓ {func}")
 
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"✗ Memory module error: {e}")
         return False
 

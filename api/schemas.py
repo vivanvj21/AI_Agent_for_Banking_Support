@@ -7,7 +7,7 @@ directly onto arguments already accepted by graph.py / tools/*.py functions.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, description="The user's chat message.")
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         None,
         description=(
             "Existing session_id to continue a conversation. Omit to start a "
@@ -31,9 +31,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
-    intent: Optional[str] = None
+    intent: str | None = None
     verified: bool
-    user_id: Optional[str] = None
+    user_id: str | None = None
     turn: int
     end_session: bool = False
     tool_calls_log: list[dict[str, Any]] = Field(default_factory=list)
@@ -47,7 +47,7 @@ class ChatResponse(BaseModel):
 class VerifyRequest(BaseModel):
     user_id: str = Field(..., description="e.g. 'U1002'")
     pin: str = Field(..., min_length=4, max_length=4, description="4-digit PIN")
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         None,
         description=(
             "If provided, this session is linked to the verified user (same "
@@ -59,10 +59,10 @@ class VerifyRequest(BaseModel):
 
 class VerifyResponse(BaseModel):
     verified: bool
-    user_id: Optional[str] = None
-    first_name: Optional[str] = None
-    session_id: Optional[str] = None
-    error: Optional[str] = None
+    user_id: str | None = None
+    first_name: str | None = None
+    session_id: str | None = None
+    error: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -74,29 +74,29 @@ class BalanceRequest(BaseModel):
     session_id: str = Field(
         ..., description="A session_id previously verified via /verify or /chat."
     )
-    account_id: Optional[str] = Field(
+    account_id: str | None = Field(
         None, description="Specific account. Omit for all accounts."
     )
 
 
 class BalanceResponse(BaseModel):
-    accounts: Optional[list[dict[str, Any]]] = None
-    account_id: Optional[str] = None
-    account_type: Optional[str] = None
-    balance: Optional[float] = None
-    currency: Optional[str] = None
-    error: Optional[str] = None
+    accounts: list[dict[str, Any]] | None = None
+    account_id: str | None = None
+    account_type: str | None = None
+    balance: float | None = None
+    currency: str | None = None
+    error: str | None = None
 
 
 class HistoryRequest(BaseModel):
     session_id: str
-    account_id: Optional[str] = None
+    account_id: str | None = None
     limit: int = Field(10, ge=1, le=100)
 
 
 class HistoryResponse(BaseModel):
     transactions: list[dict[str, Any]] = Field(default_factory=list)
-    error: Optional[str] = None
+    error: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +110,9 @@ class LockCardRequest(BaseModel):
 
 
 class LockCardResponse(BaseModel):
-    status: Optional[str] = None
-    card_id: Optional[str] = None
-    error: Optional[str] = None
+    status: str | None = None
+    card_id: str | None = None
+    error: str | None = None
 
 
 class ReportFraudRequest(BaseModel):
@@ -122,11 +122,11 @@ class ReportFraudRequest(BaseModel):
 
 
 class ReportFraudResponse(BaseModel):
-    status: Optional[str] = None
-    transaction_id: Optional[str] = None
-    reported_at: Optional[str] = None
-    note: Optional[str] = None
-    error: Optional[str] = None
+    status: str | None = None
+    transaction_id: str | None = None
+    reported_at: str | None = None
+    note: str | None = None
+    error: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -137,12 +137,12 @@ class ReportFraudResponse(BaseModel):
 class FaqSearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     k: int = Field(3, ge=1, le=10)
-    source: Optional[str] = None
+    source: str | None = None
 
 
 class FaqSearchResponse(BaseModel):
     results: list[dict[str, Any]] = Field(default_factory=list)
-    warning: Optional[str] = None
+    warning: str | None = None
 
 
 # ---------------------------------------------------------------------------

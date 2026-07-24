@@ -11,7 +11,9 @@ supervisor's classification is compromised, it has no tools to abuse.
 """
 
 import json
+
 from anthropic import Anthropic
+
 from config import require_llm_config
 
 _anthropic_client = None

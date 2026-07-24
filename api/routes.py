@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from api.dependencies import get_graph, require_verified_user
 from api.metrics import record_request

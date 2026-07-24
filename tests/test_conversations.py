@@ -19,9 +19,9 @@ This gives concrete, computed numbers for:
   - Latency:             wall-clock time per case, p50/p95 across the run
 """
 
-import time
 import statistics
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -130,7 +130,7 @@ def main():
     print(f"{'CASE':<28} {'SUCCESS':<8} {'INTENT':<8} {'TOOLS':<8} {'LATENCY(s)':<10}")
     for r in results:
         print(
-            f"{r['name']:<28} {str(r['success']):<8} {str(r['intent_ok']):<8} {str(r['tools_ok']):<8} {r['latency_s']:<10}"
+            f"{r['name']:<28} {r['success']!s:<8} {r['intent_ok']!s:<8} {r['tools_ok']!s:<8} {r['latency_s']:<10}"
         )
         if not r["success"]:
             print(

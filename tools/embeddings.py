@@ -16,11 +16,12 @@ for real semantic search quality. Swap in VoyageEmbeddingProvider (or an
 OpenAI/Cohere provider) for anything beyond local development.
 """
 
-from abc import ABC, abstractmethod
 import hashlib
 import importlib.util
 import os
 import sys
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 
@@ -129,7 +130,7 @@ def get_default_provider() -> EmbeddingProvider:
     if os.environ.get("VOYAGE_API_KEY"):
         try:
             return VoyageEmbeddingProvider()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(
                 f"[embeddings] Voyage provider unavailable ({e}); falling back to local dev embeddings.",
                 file=sys.stderr,

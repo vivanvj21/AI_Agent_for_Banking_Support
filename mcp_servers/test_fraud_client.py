@@ -47,34 +47,36 @@ async def main():
         args=[str(Path(__file__).parent / "fraud_server.py")],
     )
 
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
+    async with (
+        stdio_client(server_params) as (read, write),
+        ClientSession(read, write) as session,
+    ):
+        await session.initialize()
 
-            tools_result = await session.list_tools()
-            print("Tools advertised by the MCP server:")
-            for tool in tools_result.tools:
-                print(f"  - {tool.name}")
+        tools_result = await session.list_tools()
+        print("Tools advertised by the MCP server:")
+        for tool in tools_result.tools:
+            print(f"  - {tool.name}")
 
-            print(f"\nLocking card {card_id} as its owner (U1002)...")
-            result = await session.call_tool(
-                "lock_card", {"user_id": "U1002", "card_id": card_id}
-            )
-            print("Result:", result.content[0].text)
+        print(f"\nLocking card {card_id} as its owner (U1002)...")
+        result = await session.call_tool(
+            "lock_card", {"user_id": "U1002", "card_id": card_id}
+        )
+        print("Result:", result.content[0].text)
 
-            print(
-                "\nAttempting to lock the SAME card as a different user (U1003) — should fail..."
-            )
-            result2 = await session.call_tool(
-                "lock_card", {"user_id": "U1003", "card_id": card_id}
-            )
-            print("Result:", result2.content[0].text)
+        print(
+            "\nAttempting to lock the SAME card as a different user (U1003) — should fail..."
+        )
+        result2 = await session.call_tool(
+            "lock_card", {"user_id": "U1003", "card_id": card_id}
+        )
+        print("Result:", result2.content[0].text)
 
-            print(f"\nUnlocking card {card_id} as its rightful owner (U1002)...")
-            result3 = await session.call_tool(
-                "unlock_card", {"user_id": "U1002", "card_id": card_id}
-            )
-            print("Result:", result3.content[0].text)
+        print(f"\nUnlocking card {card_id} as its rightful owner (U1002)...")
+        result3 = await session.call_tool(
+            "unlock_card", {"user_id": "U1002", "card_id": card_id}
+        )
+        print("Result:", result3.content[0].text)
 
 
 if __name__ == "__main__":

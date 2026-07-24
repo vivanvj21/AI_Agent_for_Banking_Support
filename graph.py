@@ -22,21 +22,29 @@ call keeps failing -- after max_retries the graph routes to a human-handoff
 message instead of looping the LLM again.
 """
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
+from agents.account_agent import run_account_agent
+from agents.fraud_agent import run_fraud_agent
+from agents.search_agent import run_search_agent
 from agents.state import AgentState
 from agents.supervisor import classify_intent
 from agents.verification import try_verify
-from agents.search_agent import run_search_agent
-from agents.account_agent import run_account_agent
-from agents.fraud_agent import run_fraud_agent
+from observability.metadata import build_node_metadata
+from observability.tracing import trace_node
 from tools import memory
 
 
 def supervisor_node(state: AgentState) -> AgentState:
-    last_user_msg = state["messages"][-1]["content"]
-    intent = classify_intent(last_user_msg)
-    state["intent"] = intent
+    meta = build_node_metadata(
+        node_name="supervisor",
+        session_id=state.get("session_id"),
+        turn=state.get("turn", 0),
+    )
+    with trace_node("supervisor", metadata=meta, tags=["node:supervisor"]):
+        last_user_msg = state["messages"][-1]["content"]
+        intent = classify_intent(last_user_msg)
+        state["intent"] = intent
     return state
 
 
@@ -52,20 +60,28 @@ def route_after_supervisor(state: AgentState) -> str:
 
 
 def verify_gate_node(state: AgentState) -> AgentState:
+    # If already verified, skip the context manager entirely.
     if state.get("verified"):
         return state
 
-    last_user_msg = state["messages"][-1]["content"]
-    result = try_verify(last_user_msg)
+    meta = build_node_metadata(
+        node_name="verify_gate",
+        session_id=state.get("session_id"),
+        intent=state.get("intent"),
+        turn=state.get("turn", 0),
+    )
+    with trace_node("verify_gate", metadata=meta, tags=["node:verify_gate"]):
+        last_user_msg = state["messages"][-1]["content"]
+        result = try_verify(last_user_msg)
 
-    if result.get("verified"):
-        state["verified"] = True
-        state["user_id"] = result["user_id"]
-        if state.get("session_id"):
-            memory.link_session_to_user(state["session_id"], result["user_id"])
-    else:
-        state["retry_count"] = state.get("retry_count", 0) + 1
-        state["reply"] = result.get("error", "I couldn't verify your identity.")
+        if result.get("verified"):
+            state["verified"] = True
+            state["user_id"] = result["user_id"]
+            if state.get("session_id"):
+                memory.link_session_to_user(state["session_id"], result["user_id"])
+        else:
+            state["retry_count"] = state.get("retry_count", 0) + 1
+            state["reply"] = result.get("error", "I couldn't verify your identity.")
     return state
 
 
@@ -82,40 +98,69 @@ def route_after_verify(state: AgentState) -> str:
 
 
 def search_agent_node(state: AgentState) -> AgentState:
-    last_user_msg = state["messages"][-1]["content"]
-    reply = run_search_agent(last_user_msg, state["tool_calls_log"], state["turn"])
-    state["reply"] = reply
+    meta = build_node_metadata(
+        node_name="search_agent",
+        session_id=state.get("session_id"),
+        intent=state.get("intent"),
+        turn=state.get("turn", 0),
+    )
+    with trace_node("search_agent", metadata=meta, tags=["node:search_agent"]):
+        last_user_msg = state["messages"][-1]["content"]
+        reply = run_search_agent(last_user_msg, state["tool_calls_log"], state["turn"])
+        state["reply"] = reply
     return state
 
 
 def account_agent_node(state: AgentState) -> AgentState:
-    last_user_msg = state["messages"][-1]["content"]
-    reply = run_account_agent(
-        last_user_msg,
-        state["user_id"],
-        state["tool_calls_log"],
-        state["turn"],
+    meta = build_node_metadata(
+        node_name="account_agent",
         session_id=state.get("session_id"),
+        intent=state.get("intent"),
+        turn=state.get("turn", 0),
     )
-    state["reply"] = reply
+    with trace_node("account_agent", metadata=meta, tags=["node:account_agent"]):
+        last_user_msg = state["messages"][-1]["content"]
+        reply = run_account_agent(
+            last_user_msg,
+            state["user_id"],
+            state["tool_calls_log"],
+            state["turn"],
+            session_id=state.get("session_id"),
+        )
+        state["reply"] = reply
     return state
 
 
 def fraud_agent_node(state: AgentState) -> AgentState:
-    last_user_msg = state["messages"][-1]["content"]
-    reply = run_fraud_agent(
-        last_user_msg, state["user_id"], state["tool_calls_log"], state["turn"]
+    meta = build_node_metadata(
+        node_name="fraud_agent",
+        session_id=state.get("session_id"),
+        intent=state.get("intent"),
+        turn=state.get("turn", 0),
     )
-    state["reply"] = reply
+    with trace_node("fraud_agent", metadata=meta, tags=["node:fraud_agent"]):
+        last_user_msg = state["messages"][-1]["content"]
+        reply = run_fraud_agent(
+            last_user_msg, state["user_id"], state["tool_calls_log"], state["turn"]
+        )
+        state["reply"] = reply
     return state
 
 
 def clarify_node(state: AgentState) -> AgentState:
-    state["reply"] = (
-        "I can help with general policy questions, checking your balance or "
-        "transaction history, or security actions like locking a card or "
-        "reporting fraud. Could you tell me a bit more about what you need?"
-    )
+    with trace_node(
+        "clarify",
+        metadata=build_node_metadata(
+            node_name="clarify",
+            session_id=state.get("session_id"),
+            turn=state.get("turn", 0),
+        ),
+    ):
+        state["reply"] = (
+            "I can help with general policy questions, checking your balance or "
+            "transaction history, or security actions like locking a card or "
+            "reporting fraud. Could you tell me a bit more about what you need?"
+        )
     return state
 
 
@@ -125,12 +170,20 @@ def await_credentials_node(state: AgentState) -> AgentState:
 
 
 def human_handoff_node(state: AgentState) -> AgentState:
-    state["reply"] = (
-        "I'm unable to verify your identity after multiple attempts. "
-        "For your security, please contact support directly at 1800-XXX-XXXX "
-        "or visit a branch with valid ID."
-    )
-    state["end_session"] = True
+    with trace_node(
+        "human_handoff",
+        metadata=build_node_metadata(
+            node_name="human_handoff",
+            session_id=state.get("session_id"),
+            turn=state.get("turn", 0),
+        ),
+    ):
+        state["reply"] = (
+            "I'm unable to verify your identity after multiple attempts. "
+            "For your security, please contact support directly at 1800-XXX-XXXX "
+            "or visit a branch with valid ID."
+        )
+        state["end_session"] = True
     return state
 
 

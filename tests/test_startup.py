@@ -73,8 +73,7 @@ def test_cli_check_startup_succeeds_without_api_key():
         cwd=Path(__file__).parent.parent,
         env=env,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=30,
         check=False,
     )
@@ -92,8 +91,7 @@ def test_cli_missing_api_key_exits_gracefully():
         env=env,
         input="exit\n",
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=30,
         check=False,
     )
@@ -113,9 +111,9 @@ def test_mcp_safe_call_returns_structured_errors():
 
 def test_graph_and_agent_imports_do_not_require_api_key(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    import agents.account_agent  # noqa: F401
-    import agents.fraud_agent  # noqa: F401
-    import agents.search_agent  # noqa: F401
+    import agents.account_agent
+    import agents.fraud_agent
+    import agents.search_agent
     import agents.supervisor  # noqa: F401
     from graph import build_graph
 
