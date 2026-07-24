@@ -6,3 +6,6 @@ pytest>=8.0.0
 streamlit>=1.38.0
 voyageai>=0.3.0  # optional: only needed if using VoyageEmbeddingProvider in tools/embeddings.py
 mcp>=1.28.0      # optional: only needed for mcp_servers/ — not used by the core LangGraph app
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0

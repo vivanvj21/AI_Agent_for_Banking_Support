@@ -13,7 +13,7 @@ Two layers, matching how the agents already talk about "memory":
 
   - Long-term memory -> once a session is linked to a user_id (post
                          verification), `get_recent_sessions_for_user` /
-                         `summarize_last_session_for_user` let an agent pull
+                         `get_last_session_summary_for_user` let an agent pull
                          context from *previous* sessions, not just this one.
 
 No new infra: this reuses the same bank.db SQLite file and connection

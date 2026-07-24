@@ -1,0 +1,6 @@
+# Identity Verification
+
+Before we can discuss account balances, transaction history, or take actions like locking a
+card, we need to verify your identity. This is typically done by confirming your registered
+4-digit PIN alongside your user ID or registered email. We never ask for your full card number
+or PIN over chat in plaintext for storage â€” verification is a one-time check per session.ÿÿÿÿÿ
