@@ -11,7 +11,6 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # /chat
 # ---------------------------------------------------------------------------
@@ -26,9 +25,7 @@ class ChatRequest(BaseModel):
             "new session (same behavior as cli.py with no --resume flag)."
         ),
     )
-    channel: str = Field(
-        "api", description="Channel label stored on the session row."
-    )
+    channel: str = Field("api", description="Channel label stored on the session row.")
 
 
 class ChatResponse(BaseModel):
@@ -74,8 +71,12 @@ class VerifyResponse(BaseModel):
 
 
 class BalanceRequest(BaseModel):
-    session_id: str = Field(..., description="A session_id previously verified via /verify or /chat.")
-    account_id: Optional[str] = Field(None, description="Specific account. Omit for all accounts.")
+    session_id: str = Field(
+        ..., description="A session_id previously verified via /verify or /chat."
+    )
+    account_id: Optional[str] = Field(
+        None, description="Specific account. Omit for all accounts."
+    )
 
 
 class BalanceResponse(BaseModel):

@@ -104,7 +104,8 @@ def chat(payload: ChatRequest) -> ChatResponse:
     except Exception:
         LOGGER.exception("api_chat_failed")
         raise HTTPException(
-            status_code=500, detail="Something went wrong while processing that request."
+            status_code=500,
+            detail="Something went wrong while processing that request.",
         )
     finally:
         record_request(name, time.perf_counter() - start)

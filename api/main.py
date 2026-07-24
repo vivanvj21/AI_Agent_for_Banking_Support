@@ -75,5 +75,7 @@ def unhandled_exception_handler(request, exc):  # noqa: ANN001, ARG001
     LOGGER.exception("api_unhandled_exception")
     return JSONResponse(
         status_code=500,
-        content={"detail": "An unexpected error occurred. See server logs for details."},
+        content={
+            "detail": "An unexpected error occurred. See server logs for details."
+        },
     )
