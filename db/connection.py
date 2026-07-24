@@ -30,11 +30,11 @@ DB_PATH = Path(__file__).parent / "bank.db"
 # SQLite pragmas applied to every connection opened by this factory.
 # Values are chosen for a single-file, moderate-concurrency web app.
 _PRAGMAS = (
-    ("journal_mode", "WAL"),   # allow concurrent readers during writes
-    ("foreign_keys", "ON"),    # enforce FK constraints declared in schema.sql
+    ("journal_mode", "WAL"),  # allow concurrent readers during writes
+    ("foreign_keys", "ON"),  # enforce FK constraints declared in schema.sql
     ("busy_timeout", "5000"),  # wait up to 5 s before raising OperationalError
-    ("cache_size", "-8000"),   # 8 MB page cache (negative = kibibytes)
-    ("synchronous", "NORMAL"), # safe with WAL; faster than FULL
+    ("cache_size", "-8000"),  # 8 MB page cache (negative = kibibytes)
+    ("synchronous", "NORMAL"),  # safe with WAL; faster than FULL
 )
 
 

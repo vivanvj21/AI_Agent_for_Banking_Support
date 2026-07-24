@@ -75,7 +75,9 @@ def create_session(channel: str = "cli", session_id: str | None = None) -> str:
     )
     conn.commit()
     conn.close()
-    LOGGER.debug("session_created", extra={"session_id": session_id, "channel": channel})
+    LOGGER.debug(
+        "session_created", extra={"session_id": session_id, "channel": channel}
+    )
     return session_id
 
 
@@ -89,7 +91,9 @@ def link_session_to_user(session_id: str, user_id: str) -> None:
     )
     conn.commit()
     conn.close()
-    LOGGER.info("session_linked_to_user", extra={"session_id": session_id, "user_id": user_id})
+    LOGGER.info(
+        "session_linked_to_user", extra={"session_id": session_id, "user_id": user_id}
+    )
 
 
 def append_message(session_id: str, turn: int, role: str, content: str) -> None:
@@ -237,6 +241,9 @@ def cleanup_old_sessions(
                 "retention_days": retention_days,
             },
         )
-        return {"deleted_sessions": deleted_sessions, "deleted_messages": deleted_messages}
+        return {
+            "deleted_sessions": deleted_sessions,
+            "deleted_messages": deleted_messages,
+        }
     finally:
         conn.close()

@@ -123,12 +123,18 @@ def verify_identity(user_id: str, pin: str) -> dict:
         ).fetchone()
 
         if row is None:
-            return {"verified": False, "error": "User ID or PIN did not match our records."}
+            return {
+                "verified": False,
+                "error": "User ID or PIN did not match our records.",
+            }
 
         stored_hash: str = row["pin_hash"]
         if not _verify_pin(pin, stored_hash):
             LOGGER.warning("verify_identity_failed", extra={"user_id": user_id})
-            return {"verified": False, "error": "User ID or PIN did not match our records."}
+            return {
+                "verified": False,
+                "error": "User ID or PIN did not match our records.",
+            }
 
         # Transparent SHA-256 → Argon2 upgrade on first successful login.
         if _ARGON2_AVAILABLE and _is_legacy_sha256(stored_hash):

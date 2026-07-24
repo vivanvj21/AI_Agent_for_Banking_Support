@@ -48,6 +48,7 @@ def hash_pin(pin: str) -> str:
     sys.path has been fully configured in some test environments.
     """
     from tools.account_tools import hash_pin as _hash_pin  # noqa: PLC0415
+
     return _hash_pin(pin)
 
 

@@ -87,7 +87,9 @@ def report_card_lost(user_id: str, card_id: str) -> dict:
             "UPDATE cards SET status = 'reported_lost' WHERE card_id = ?", (card_id,)
         )
         conn.commit()
-        LOGGER.info("card_reported_lost", extra={"user_id": user_id, "card_id": card_id})
+        LOGGER.info(
+            "card_reported_lost", extra={"user_id": user_id, "card_id": card_id}
+        )
         return {
             "status": "reported_lost",
             "card_id": card_id,
@@ -122,7 +124,11 @@ def report_fraud_transaction(
         reported_at = datetime.now().isoformat()
         LOGGER.info(
             "fraud_transaction_reported",
-            extra={"user_id": user_id, "transaction_id": transaction_id, "reason": reason},
+            extra={
+                "user_id": user_id,
+                "transaction_id": transaction_id,
+                "reason": reason,
+            },
         )
         return {
             "status": "flagged",
