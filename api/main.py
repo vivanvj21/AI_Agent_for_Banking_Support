@@ -20,6 +20,7 @@ Docs are auto-served at /docs (Swagger) and /redoc once running.
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -29,9 +30,45 @@ from api.routes import router
 from api.schemas import MetricsResponse
 from config import validate_startup
 from logging_config import configure_logging
+from tools.memory import cleanup_old_sessions
 
 configure_logging()
 LOGGER = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
+    """Application lifespan: run startup logic, yield, then run shutdown logic.
+
+    Replaces the deprecated ``@app.on_event("startup")`` pattern.  Startup
+    tasks are identical to what cli.py / app_streamlit.py already perform:
+
+    * Validate directories, database schema, and Chroma FAQ index.
+    * require_llm=False: a missing ANTHROPIC_API_KEY should not prevent the
+      process from starting and serving /health and /faq/search — it will
+      surface as a 503 from /chat specifically.
+    * Run session cleanup to remove expired conversations on startup.
+    """
+    # --- Startup ---
+    status = validate_startup(require_llm=False, initialize=True)
+    if not status.ok:
+        LOGGER.error("api_startup_validation_failed", extra={"details": status.details})
+    else:
+        LOGGER.info("api_startup_validation_ok", extra={"details": status.details})
+
+    # Remove sessions inactive for longer than the default retention window.
+    try:
+        cleanup_result = cleanup_old_sessions()
+        LOGGER.info("api_startup_session_cleanup", extra=cleanup_result)
+    except Exception:
+        # Non-fatal: log and continue serving requests.
+        LOGGER.exception("api_startup_session_cleanup_failed")
+
+    yield  # Application is running.
+
+    # --- Shutdown (nothing needed yet) ---
+    LOGGER.info("api_shutdown")
+
 
 app = FastAPI(
     title="Autonomous Bank Assistant API",
@@ -42,25 +79,8 @@ app = FastAPI(
         "duplicated here."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    """
-    Same idempotent initialization cli.py/app_streamlit.py already perform
-    (SQLite schema + demo data, Chroma FAQ index) via config.validate_startup.
-    require_llm=False here on purpose: a missing ANTHROPIC_API_KEY should not
-    prevent the process from starting and serving /health and /faq/search --
-    it will surface as a 503 from /chat specifically, same as
-    MissingAPIKeyError does in cli.py/app_streamlit.py.
-    """
-    status = validate_startup(require_llm=False, initialize=True)
-    if not status.ok:
-        LOGGER.error("api_startup_validation_failed", extra={"details": status.details})
-    else:
-        LOGGER.info("api_startup_validation_ok", extra={"details": status.details})
-
 
 app.include_router(router)
 

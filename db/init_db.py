@@ -8,18 +8,12 @@ import sqlite3
 from pathlib import Path
 
 from db import seed_synthetic_data as seed_data
+from db.connection import DB_PATH, get_connection
 
 LOGGER = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent / "bank.db"
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 REQUIRED_TABLES = {"users", "accounts", "cards", "transactions", "sessions", "messages"}
-
-
-def _connect(db_path: Path = DB_PATH) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def _existing_tables(conn: sqlite3.Connection) -> set[str]:
@@ -86,7 +80,7 @@ def ensure_database(db_path: Path = DB_PATH, seed_demo_data: bool = True) -> dic
     """
     db_path.parent.mkdir(parents=True, exist_ok=True)
     existed = db_path.exists()
-    conn = _connect(db_path)
+    conn = get_connection(db_path)
     try:
         created_schema = create_schema_if_needed(conn)
         existing = _existing_tables(conn)

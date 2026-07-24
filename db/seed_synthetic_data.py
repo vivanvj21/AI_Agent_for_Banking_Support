@@ -11,10 +11,14 @@ Run: python db/seed_synthetic_data.py
 
 import argparse
 import sqlite3
-import hashlib
 import random
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# Allow running as a standalone script from the repo root.
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 random.seed(42)
 
@@ -37,7 +41,14 @@ FOREIGN_MERCHANTS = ["AliExpress-CN", "Steam-LU", "UnknownVendor-RU"]
 
 
 def hash_pin(pin: str) -> str:
-    return hashlib.sha256(pin.encode()).hexdigest()
+    """Hash a PIN using the same algorithm as tools/account_tools.py.
+
+    Importing at call-time (rather than module import time) avoids a circular
+    import during the very first ``ensure_database`` call that happens before
+    sys.path has been fully configured in some test environments.
+    """
+    from tools.account_tools import hash_pin as _hash_pin  # noqa: PLC0415
+    return _hash_pin(pin)
 
 
 def build_schema(conn):

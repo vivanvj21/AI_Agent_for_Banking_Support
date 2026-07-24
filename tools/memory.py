@@ -5,40 +5,54 @@ yesterday?").
 
 Two layers, matching how the agents already talk about "memory":
 
-  - Session memory   -> `sessions` + `messages` tables. Every turn of every
-                         session is persisted as it happens, so a crashed or
-                         restarted process (CLI re-run, Streamlit re-deploy)
-                         can resume mid-conversation instead of starting
-                         from a blank AgentState.
+  - Session memory   -> ``sessions`` + ``messages`` tables. Every turn of every
+                        session is persisted as it happens, so a crashed or
+                        restarted process (CLI re-run, Streamlit re-deploy)
+                        can resume mid-conversation instead of starting
+                        from a blank AgentState.
 
   - Long-term memory -> once a session is linked to a user_id (post
-                         verification), `get_recent_sessions_for_user` /
-                         `get_last_session_summary_for_user` let an agent pull
-                         context from *previous* sessions, not just this one.
+                        verification), ``get_recent_sessions_for_user`` /
+                        ``get_last_session_summary_for_user`` let an agent pull
+                        context from *previous* sessions, not just this one.
+
+Session cleanup
+---------------
+``cleanup_old_sessions()`` removes sessions (and their messages) that have
+been inactive for longer than ``retention_days`` and have **no unverified
+in-flight messages** (i.e. the user_id has been set or the session is empty).
+It is safe to call at any startup; it never deletes a session that was active
+within the retention window.
 
 No new infra: this reuses the same bank.db SQLite file and connection
-pattern as tools/account_tools.py. If this ever needs to run across
-multiple server instances, swap `_connect()` for a Postgres connection --
+pattern from db/connection.py. If this ever needs to run across multiple
+server instances, swap ``get_connection`` for a Postgres connection —
 every other function in this file is storage-agnostic.
 """
 
-import sqlite3
+from __future__ import annotations
+
+import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from db.connection import DB_PATH, get_connection
 from db.init_db import ensure_database
 
-DB_PATH = Path(__file__).parent.parent / "db" / "bank.db"
+LOGGER = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 20  # cap on turns replayed back into a resumed session
 
+# Default session retention period.  Sessions with ``last_active_at`` older
+# than this value will be removed by ``cleanup_old_sessions()``.
+DEFAULT_RETENTION_DAYS = 90
 
-def _connect():
-    ensure_database(DB_PATH, seed_demo_data=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+
+def _connect(db_path: Path | None = None):
+    _path = db_path or DB_PATH
+    ensure_database(_path, seed_demo_data=True)
+    return get_connection(_path)
 
 
 def _now() -> str:
@@ -61,6 +75,7 @@ def create_session(channel: str = "cli", session_id: str | None = None) -> str:
     )
     conn.commit()
     conn.close()
+    LOGGER.debug("session_created", extra={"session_id": session_id, "channel": channel})
     return session_id
 
 
@@ -74,6 +89,7 @@ def link_session_to_user(session_id: str, user_id: str) -> None:
     )
     conn.commit()
     conn.close()
+    LOGGER.info("session_linked_to_user", extra={"session_id": session_id, "user_id": user_id})
 
 
 def append_message(session_id: str, turn: int, role: str, content: str) -> None:
@@ -169,3 +185,58 @@ def get_last_session_summary_for_user(
         "first_message": first_user_msg,
         "turn_count": sum(1 for m in messages if m["role"] == "user"),
     }
+
+
+def cleanup_old_sessions(
+    retention_days: int = DEFAULT_RETENTION_DAYS,
+    db_path: Path | None = None,
+) -> dict:
+    """Remove sessions (and their messages) inactive for longer than *retention_days*.
+
+    Only sessions whose ``last_active_at`` is older than the cutoff **and**
+    that have no messages still within the retention window are removed.
+    Active sessions (even unverified ones) are never deleted.
+
+    Returns a summary dict: ``{"deleted_sessions": int, "deleted_messages": int}``.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat()
+    conn = _connect(db_path)
+    try:
+        # Find expired session IDs.
+        stale_rows = conn.execute(
+            "SELECT session_id FROM sessions WHERE last_active_at < ?",
+            (cutoff,),
+        ).fetchall()
+        stale_ids = [r["session_id"] for r in stale_rows]
+
+        if not stale_ids:
+            LOGGER.info("session_cleanup_nothing_to_remove", extra={"cutoff": cutoff})
+            return {"deleted_sessions": 0, "deleted_messages": 0}
+
+        # Delete messages first (FK child rows).
+        placeholders = ",".join("?" * len(stale_ids))
+        cur = conn.execute(
+            f"DELETE FROM messages WHERE session_id IN ({placeholders})",
+            stale_ids,
+        )
+        deleted_messages = cur.rowcount
+
+        cur = conn.execute(
+            f"DELETE FROM sessions WHERE session_id IN ({placeholders})",
+            stale_ids,
+        )
+        deleted_sessions = cur.rowcount
+        conn.commit()
+
+        LOGGER.info(
+            "session_cleanup_complete",
+            extra={
+                "deleted_sessions": deleted_sessions,
+                "deleted_messages": deleted_messages,
+                "cutoff": cutoff,
+                "retention_days": retention_days,
+            },
+        )
+        return {"deleted_sessions": deleted_sessions, "deleted_messages": deleted_messages}
+    finally:
+        conn.close()

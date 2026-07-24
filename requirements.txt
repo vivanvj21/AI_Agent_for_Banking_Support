@@ -9,3 +9,4 @@ mcp>=1.28.0      # optional: only needed for mcp_servers/ — not used by the co
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.9.0
+argon2-cffi>=23.1.0  # secure PIN hashing — replaces raw SHA-256
