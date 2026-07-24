@@ -1,0 +1,3 @@
+invalid type: string "# Reporting a Fraudulent Transaction\n\nTo report a transaction as fraudulent, provide the transaction ID (found in your statement or\ntransaction history) and a brief description of why it looks suspicious. Once reported:\n\n1. The transaction is flagged and a provisional credit may be issued within 10 business days.\nTEXT NOT NULL,
+    timestamp     TEXT NOT NULL,
+    FOREI
