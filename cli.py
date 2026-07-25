@@ -36,7 +36,126 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Validate database, Chroma, memory, graph imports, and configuration, then exit.",
     )
+    # ── RAGAS evaluation ────────────────────────────────────────────────────
+    parser.add_argument(
+        "--evaluate-rag",
+        metavar="DATASET",
+        help=(
+            "Evaluate RAG quality using RAGAS. "
+            "DATASET is a path to a JSONL / JSON / CSV file "
+            "or a LangSmith dataset name prefixed with 'langsmith:'. "
+            "Example: python cli.py --evaluate-rag eval_data.jsonl"
+        ),
+    )
+    parser.add_argument(
+        "--eval-output",
+        metavar="DIR",
+        default=None,
+        help="Directory for evaluation reports (default: EVAL_OUTPUT_DIR env var or 'evaluation_reports').",
+    )
+    parser.add_argument(
+        "--eval-metrics",
+        metavar="METRICS",
+        default=None,
+        help="Comma-separated RAGAS metrics to compute (default: all four).",
+    )
     return parser.parse_args()
+
+
+def _run_evaluation(args: argparse.Namespace) -> int:
+    """Run RAGAS evaluation and print results.  Returns an exit code."""
+    import os
+    import time
+
+    from evaluation import get_eval_config, ragas_available
+    from evaluation.dataset_loader import load_dataset, load_from_langsmith
+    from evaluation.ragas_runner import RagasRunner
+
+    if not ragas_available():
+        print(
+            "\nRAGAS is not installed. Run:\n"
+            "  pip install ragas langchain-anthropic\n"
+            "Then set ANTHROPIC_API_KEY and re-run."
+        )
+        return 2
+
+    # Apply CLI overrides to environment before building config
+    if args.eval_output:
+        os.environ["EVAL_OUTPUT_DIR"] = args.eval_output
+    if args.eval_metrics:
+        os.environ["EVAL_METRICS"] = args.eval_metrics
+
+    config = get_eval_config()
+    dataset_arg: str = args.evaluate_rag
+
+    print("\n" + "=" * 60)
+    print("  RAGAS Evaluation")
+    print("=" * 60)
+    print(f"  Dataset  : {dataset_arg}")
+    print(f"  Model    : {config.eval_model}")
+    print(f"  Metrics  : {', '.join(config.metrics)}")
+    print(f"  Output   : {config.output_dir}")
+    print("=" * 60 + "\n")
+
+    # Load samples
+    try:
+        if dataset_arg.startswith("langsmith:"):
+            dataset_name = dataset_arg[len("langsmith:") :]
+            print(f"Loading from LangSmith dataset: {dataset_name}")
+            samples = load_from_langsmith(dataset_name)
+        else:
+            print(f"Loading from file: {dataset_arg}")
+            samples = load_dataset(dataset_arg)
+    except FileNotFoundError:
+        print(f"\nError: Dataset file not found: {dataset_arg}")
+        return 2
+    except ValueError as exc:
+        print(f"\nError: {exc}")
+        return 2
+
+    if not samples:
+        print("\nNo valid samples found in the dataset. Nothing to evaluate.")
+        return 1
+
+    print(f"Loaded {len(samples)} sample(s). Starting evaluation…\n")
+
+    # Run evaluation
+    try:
+        t0 = time.perf_counter()
+        runner = RagasRunner(config, dataset_name=dataset_arg)
+        report = runner.evaluate(samples)
+        elapsed = time.perf_counter() - t0
+    except ImportError as exc:
+        print(f"\nError: {exc}")
+        return 2
+    except RuntimeError as exc:
+        print(f"\nEvaluation failed: {exc}")
+        return 2
+
+    # Print results
+    print("=" * 60)
+    print("  Results")
+    print("=" * 60)
+    for metric, score in report.aggregate_scores.items():
+        bar = "█" * round(score * 20) + "░" * (20 - round(score * 20))
+        print(f"  {metric:<22} {score:.4f}  {bar}")
+    print("-" * 60)
+    print(f"  Mean overall score   {report.mean_overall_score:.4f}")
+    print(f"  Evaluated samples    {report.evaluated_samples}/{report.total_samples}")
+    print(f"  Failed samples       {report.failed_samples}")
+    print(f"  Elapsed              {elapsed:.2f}s")
+    print("=" * 60 + "\n")
+
+    # Save reports
+    try:
+        written = report.save(output_dir=config.output_dir, fmt="both")
+        for fmt_name, path in written.items():
+            print(f"  Saved {fmt_name} report: {path}")
+    except Exception:
+        LOGGER.debug("eval_report_save_failed", exc_info=True)
+        print("  Warning: could not write report files.")
+
+    return 0
 
 
 def _print_tool_log(state: dict) -> None:
@@ -72,6 +191,10 @@ def main() -> int:
         for name, status in startup.details.items():
             print(f"  {name}: {status}")
         return 0
+
+    # ── RAGAS evaluation path (exits before the chat loop) ──────────────────
+    if args.evaluate_rag:
+        return _run_evaluation(args)
 
     try:
         app = build_graph()
