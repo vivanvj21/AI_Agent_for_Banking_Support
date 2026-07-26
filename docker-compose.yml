@@ -1,18 +1,132 @@
-version: "3.8"
+# ─────────────────────────────────────────────────────────────────────────────
+# Autonomous Bank Assistant — Docker Compose
+#
+# Usage:
+#   docker compose up                  # starts streamlit + api
+#   docker compose up streamlit        # only Streamlit UI
+#   docker compose up api              # only FastAPI
+#   docker compose --profile tools up  # starts all services incl. extras
+#
+# One-time setup:
+#   cp .env.example .env
+#   # Edit .env and set ANTHROPIC_API_KEY
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+# ── Shared env loaded from .env file ─────────────────────────────────────────
+x-common-env: &common-env
+  LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-5}
+  VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+  # LangSmith
+  LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-bank-assistant}
+  LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
+  # Memory Engine (Phase 6) — optional overrides
+  MEMORY_MAX_TURNS: ${MEMORY_MAX_TURNS:-50}
+  MEMORY_SIM_THRESHOLD: ${MEMORY_SIM_THRESHOLD:-0.35}
+  MEMORY_SUMMARY_THRESHOLD: ${MEMORY_SUMMARY_THRESHOLD:-20}
+  # Logging
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+# ── Shared volume mounts ──────────────────────────────────────────────────────
+x-common-volumes: &common-volumes
+  - db_data:/app/db
+  - chroma_faq:/app/knowledge_base/chroma_store
+  - chroma_memory:/app/knowledge_base/chroma_memory
+  - faq_docs:/app/knowledge_base/faq_docs
+  - logs:/app/logs
+
+# ── Shared build context ──────────────────────────────────────────────────────
+x-build: &build
+  context: .
+  dockerfile: docker/Dockerfile
 
 services:
-  bank-assistant:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+
+  # ── Streamlit UI ────────────────────────────────────────────────────────────
+  streamlit:
+    build: *build
+    container_name: bank-assistant-ui
+    restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "${STREAMLIT_PORT:-8501}:8501"
     environment:
-      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-5}
-      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
-    volumes:
-      - ./db:/app/db
-      - ./knowledge_base/chroma_store:/app/knowledge_base/chroma_store
-      - ./logs:/app/logs
+      <<: *common-env
+    volumes: *common-volumes
+    command: >
+      streamlit run app_streamlit.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.headless=true
+      --browser.gatherUsageStats=false
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── FastAPI REST API ────────────────────────────────────────────────────────
+  api:
+    build: *build
+    container_name: bank-assistant-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      <<: *common-env
+    volumes: *common-volumes
+    command: >
+      python -m uvicorn api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers ${API_WORKERS:-1}
+      --log-level ${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 20s
+      timeout: 8s
+      start_period: 15s
+      retries: 3
+
+  # ── DB initializer (runs once, then exits) ───────────────────────────────
+  # Ensures SQLite schema + demo data are seeded before other services start.
+  # Remove after first run if you want to avoid the startup delay.
+  db-init:
+    build: *build
+    container_name: bank-assistant-db-init
+    environment:
+      <<: *common-env
+    volumes: *common-volumes
+    command: >
+      python -c "
+      from db.init_db import ensure_database;
+      from memory.store import ensure_memory_schema;
+      r = ensure_database(seed_demo_data=True);
+      ensure_memory_schema();
+      print('DB init complete:', r)
+      "
+    restart: "no"
+
+# ── Named volumes (data persists across docker compose down / up) ─────────────
+volumes:
+  db_data:
+    driver: local
+  chroma_faq:
+    driver: local
+  chroma_memory:
+    driver: local
+  faq_docs:
+    driver: local
+  logs:
+    driver: local

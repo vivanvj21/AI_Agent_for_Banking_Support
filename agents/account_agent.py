@@ -91,14 +91,34 @@ def run_account_agent(
     turn: int,
     max_tool_iters: int = 3,
     session_id: str | None = None,
+    memory_context: dict | None = None,
+    system_prompt_override: str | None = None,
 ) -> str:
+    # Phase 8: graph-provided prompt takes precedence (from prompt_builder);
+    # fall back to in-agent memory assembly for backward compatibility.
+    if system_prompt_override:
+        system = system_prompt_override
+    else:
+        system = SYSTEM_PROMPT
+        if memory_context:
+            extra_parts = []
+            if memory_context.get("summary"):
+                extra_parts.append(
+                    f"[Conversation summary from earlier in this session]\n{memory_context['summary']}"
+                )
+            if memory_context.get("long_term_facts"):
+                facts = "\n".join(f"- {f}" for f in memory_context["long_term_facts"])
+                extra_parts.append(f"[User long-term memory / preferences]\n{facts}")
+            if extra_parts:
+                system = SYSTEM_PROMPT + "\n\n" + "\n\n".join(extra_parts)
+
     messages = [{"role": "user", "content": user_message}]
 
     for _ in range(max_tool_iters):
         response = get_client().messages.create(
             model="claude-sonnet-4-5",
             max_tokens=500,
-            system=SYSTEM_PROMPT,
+            system=system,
             tools=TOOLS,
             messages=messages,
         )

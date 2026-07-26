@@ -79,15 +79,20 @@ def _format_search_context(result: dict) -> str:
 
 
 def run_search_agent(
-    user_message: str, tool_log: list, turn: int, max_tool_iters: int = 3
+    user_message: str,
+    tool_log: list,
+    turn: int,
+    max_tool_iters: int = 3,
+    system_prompt_override: str | None = None,
 ) -> str:
+    effective_prompt = system_prompt_override or SYSTEM_PROMPT
     messages = [{"role": "user", "content": user_message}]
 
     for _ in range(max_tool_iters):
         response = get_client().messages.create(
             model="claude-sonnet-4-5",
             max_tokens=500,
-            system=SYSTEM_PROMPT,
+            system=effective_prompt,
             tools=TOOLS,
             messages=messages,
         )

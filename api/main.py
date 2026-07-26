@@ -23,13 +23,18 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from api.health import mark_ready
+from api.health import router as health_router
+from api.mcp_routes import router as mcp_router
 from api.metrics import snapshot
 from api.routes import router
 from api.schemas import MetricsResponse
 from config import validate_startup
 from logging_config import configure_logging
+from mcp_platform.manager import get_mcp_manager
 from tools.memory import cleanup_old_sessions
 
 configure_logging()
@@ -38,17 +43,7 @@ LOGGER = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: run startup logic, yield, then run shutdown logic.
-
-    Replaces the deprecated ``@app.on_event("startup")`` pattern.  Startup
-    tasks are identical to what cli.py / app_streamlit.py already perform:
-
-    * Validate directories, database schema, and Chroma FAQ index.
-    * require_llm=False: a missing ANTHROPIC_API_KEY should not prevent the
-      process from starting and serving /health and /faq/search — it will
-      surface as a 503 from /chat specifically.
-    * Run session cleanup to remove expired conversations on startup.
-    """
+    """Application lifespan: run startup logic, yield, then run shutdown logic."""
     # --- Startup ---
     status = validate_startup(require_llm=False, initialize=True)
     if not status.ok:
@@ -61,12 +56,40 @@ async def lifespan(app: FastAPI):
         cleanup_result = cleanup_old_sessions()
         LOGGER.info("api_startup_session_cleanup", extra=cleanup_result)
     except Exception:
-        # Non-fatal: log and continue serving requests.
         LOGGER.exception("api_startup_session_cleanup_failed")
+
+    # Phase 6: ensure memory tables exist and run expiration cleanup
+    try:
+        from memory.manager import get_memory_manager
+
+        mgr = get_memory_manager()
+        mgr.ensure_ready()
+        expired = mgr.expire_old_memories()
+        LOGGER.info("api_startup_memory_ready", extra=expired)
+    except Exception:
+        LOGGER.exception("api_startup_memory_init_failed")
+
+    # Phase 9: Initialize MCP platform and run tool discovery
+    try:
+        mcp_mgr = get_mcp_manager()
+        discovery_results = mcp_mgr.initialize(skip_discovery=False)
+        LOGGER.info(
+            "api_startup_mcp_ready",
+            extra={
+                "snapshot": mcp_mgr.get_registry_snapshot(),
+                "discovery": discovery_results,
+            },
+        )
+    except Exception:
+        LOGGER.exception("api_startup_mcp_init_failed")
+
+    # Signal readiness — /health/ready now returns 200
+    mark_ready()
+    LOGGER.info("api_ready")
 
     yield  # Application is running.
 
-    # --- Shutdown (nothing needed yet) ---
+    # --- Shutdown ---
     LOGGER.info("api_shutdown")
 
 
@@ -75,14 +98,37 @@ app = FastAPI(
     description=(
         "REST interface over the existing LangGraph multi-agent banking "
         "assistant. Wraps the same graph, agents, tools, and memory layer "
-        "used by cli.py and app_streamlit.py -- no business logic is "
+        "used by cli.py and app_streamlit.py — no business logic is "
         "duplicated here."
     ),
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan,
 )
 
+# CORS — allow all origins in dev; tighten in production via env
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 app.include_router(router)
+app.include_router(health_router)  # /health/live and /health/ready
+app.include_router(mcp_router)  # /mcp/status, /mcp/tools, /mcp/call
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return {
+        "service": "Autonomous Bank Assistant API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+        "ready": "/health/ready",
+    }
 
 
 @app.get("/metrics", response_model=MetricsResponse)

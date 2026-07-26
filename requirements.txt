@@ -14,3 +14,4 @@ rank-bm25>=0.2.2     # BM25 sparse retrieval for hybrid RAG
 langsmith>=0.1.0     # optional: LangSmith tracing — set LANGSMITH_TRACING=true to enable
 ragas>=0.2.0         # optional: RAGAS evaluation — set ANTHROPIC_API_KEY to use
 langchain-anthropic>=0.3.0  # optional: required by RAGAS metrics (LangchainLLMWrapper)
+python-dotenv>=1.0.0 # .env loading for start.py and local dev

@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python cache
+__pycache__
+*.py[cod]
+*.pyo
+*$py.class
+.mypy_cache
+.ruff_cache
+.pytest_cache
+
+# Virtual environments
+venv/
+.venv/
+venv_verify/
+
+# Testing
+tests/
+.coverage
+htmlcov/
+pytest.ini
+
+# Local env (NEVER include secrets in the image)
+.env
+.env.*
+
+# Development databases and data (volumes mount these at runtime)
+db/*.db
+db/*.sqlite
+knowledge_base/chroma_store/
+knowledge_base/chroma_memory/
+
+# Logs and reports (generated at runtime)
+logs/
+evaluation_reports/
+
+# IDE
+.idea/
+.vscode/
+
+# Docs
+docs/
+*.md
+README*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Evaluation
+evaluation/
+
+# MCP servers (not needed in container unless specifically running MCP)
+# mcp_servers/
+
+# Observability config (included — needed by app)
+# observability/

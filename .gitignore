@@ -48,3 +48,10 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Chroma vector stores (generated at runtime)
+knowledge_base/chroma_store/
+knowledge_base/chroma_memory/
+
+# Docker Compose local overrides
+docker-compose.override.yml
