@@ -10,12 +10,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from api.dependencies import verify_perimeter_api_key
 
 LOGGER = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[Depends(verify_perimeter_api_key)])
 
 
 class MCPToolCallRequest(BaseModel):

@@ -57,10 +57,9 @@ USER bankapp
 # Both ports exposed; runtime CMD selects which service to run
 EXPOSE 8501 8000
 
-# Health check via FastAPI /health (or override in compose)
+# Health check via python probe script (supports both API and Streamlit containers)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT_API}/health')" \
-    || exit 1
+    CMD python docker/healthcheck.py || exit 1
 
 # Default: Streamlit UI.
 # Override at runtime:

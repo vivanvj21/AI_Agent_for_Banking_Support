@@ -99,37 +99,75 @@ with st.sidebar:
             st.error("Could not start a new session.")
             st.info(str(exc))
 
-user_input = st.chat_input("Type your message...")
-if user_input:
-    st.session_state.display_history.append(("user", user_input))
-    with st.chat_message("user"):
-        st.write(user_input)
+state = st.session_state.state
 
-    state = st.session_state.state
-    state["turn"] += 1
-    state["messages"].append({"role": "user", "content": user_input})
-    state["reply"] = None
+if not state.get("verified") and state.get("intent") in ("account", "fraud"):
+    st.warning("🔒 Identity Verification Required")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        with st.form("verification_form"):
+            auth_uid = st.text_input("User ID", placeholder="e.g. U1002").strip()
+            auth_pin = st.text_input("4-digit PIN", type="password").strip()
+            submit_btn = st.form_submit_button("Verify & Proceed")
 
-    try:
-        with st.spinner("Thinking..."):
-            LOGGER.info("streamlit_turn_start", extra={"turn": state["turn"]})
-            state = st.session_state.graph_app.invoke(state)
-        persist_turn(state, user_input)
-        st.session_state.state = state
-        LOGGER.info("streamlit_turn_complete", extra={"turn": state["turn"]})
-    except MissingAPIKeyError as exc:
-        LOGGER.warning("streamlit_missing_api_key")
-        st.error("Missing LLM configuration.")
-        st.info(str(exc))
-        st.stop()
-    except Exception:
-        LOGGER.exception("streamlit_turn_failed")
-        state["reply"] = "Sorry, something went wrong while processing that request."
-        st.session_state.state = state
+            if submit_btn:
+                if not auth_uid or not auth_pin:
+                    st.error("Please enter both User ID and PIN.")
+                else:
+                    state["auth_user_id"] = auth_uid
+                    state["auth_pin"] = auth_pin
+                    state["turn"] += 1
+                    try:
+                        with st.spinner("Verifying..."):
+                            LOGGER.info("streamlit_auth_start", extra={"turn": state["turn"]})
+                            state = st.session_state.graph_app.invoke(state)
+                        persist_turn(state, "[Authenticated]")
+                        st.session_state.state = state
+                        # Sync Streamlit display history
+                        st.session_state.display_history.append(("user", "[Authenticated]"))
+                        st.session_state.display_history.append(("assistant", state["reply"]))
+                        st.rerun()
+                    except MissingAPIKeyError as exc:
+                        st.error("Missing LLM configuration.")
+                        st.stop()
+                    except Exception as exc:
+                        st.error(f"Verification failed: {exc}")
+    with col2:
+        if st.button("Cancel Verification", use_container_width=True):
+            state["intent"] = None
+            st.session_state.state = state
+            st.rerun()
 
-    with st.chat_message("assistant"):
-        st.write(state["reply"])
-    st.session_state.display_history.append(("assistant", state["reply"]))
+else:
+    user_input = st.chat_input("Type your message...")
+    if user_input:
+        st.session_state.display_history.append(("user", user_input))
+        with st.chat_message("user"):
+            st.write(user_input)
 
-    if state.get("end_session"):
-        st.warning("Session ended by assistant.")
+        state["turn"] += 1
+        state["messages"].append({"role": "user", "content": user_input})
+        state["reply"] = None
+
+        try:
+            with st.spinner("Thinking..."):
+                LOGGER.info("streamlit_turn_start", extra={"turn": state["turn"]})
+                state = st.session_state.graph_app.invoke(state)
+            persist_turn(state, user_input)
+            # Sync Streamlit display history
+            if state.get("reply"):
+                st.session_state.display_history.append(("assistant", state["reply"]))
+            st.session_state.state = state
+            LOGGER.info("streamlit_turn_complete", extra={"turn": state["turn"]})
+            st.rerun()
+        except MissingAPIKeyError as exc:
+            LOGGER.warning("streamlit_missing_api_key")
+            st.error("Missing LLM configuration.")
+            st.info(str(exc))
+            st.stop()
+        except Exception:
+            LOGGER.exception("streamlit_turn_failed")
+            state["reply"] = "Sorry, something went wrong while processing that request."
+            st.session_state.state = state
+            st.rerun()
+

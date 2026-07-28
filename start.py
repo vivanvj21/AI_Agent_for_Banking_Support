@@ -75,6 +75,11 @@ def run_streamlit(port: int = 8501) -> None:
 def run_api(port: int = 8000, workers: int = 1, reload: bool = False) -> None:
     print(f"\n[API] Starting FastAPI on http://localhost:{port}")
     print(f"   Docs: http://localhost:{port}/docs\n")
+    
+    # Configure Uvicorn proxy header support.
+    from config import settings
+    forwarded_ips = settings.deployment.forwarded_allow_ips
+    
     cmd = [
         _python(),
         "-m",
@@ -85,7 +90,9 @@ def run_api(port: int = 8000, workers: int = 1, reload: bool = False) -> None:
         f"--port={port}",
         f"--workers={workers}",
         "--log-level",
-        os.environ.get("LOG_LEVEL", "info").lower(),
+        settings.logging.level.lower(),
+        "--proxy-headers",
+        f"--forwarded-allow-ips={forwarded_ips}",
     ]
     if reload:
         cmd.append("--reload")
@@ -150,23 +157,40 @@ Examples:
     return parser.parse_args()
 
 
+def print_startup_banner(mode: str) -> None:
+    """Print a concise production startup banner showing key configuration parameters."""
+    from config import settings
+    print("=" * 60)
+    print("  AUTONOMOUS BANK ASSISTANT - STARTING SYSTEM")
+    print(f"  Mode:         {mode.upper()}")
+    print(f"  Version:      {settings.app.version}")
+    print(f"  Environment:  {settings.app.env.upper()}")
+    print(f"  Fingerprint:  {settings.get_fingerprint()[:12]}...")
+    print(f"  Database:     {settings.database.db_path.name}")
+    print(f"  LLM Model:    {settings.llm.provider}:{settings.llm.model}")
+    print("=" * 60)
+
+
 def main() -> None:
     _load_env()
+    from config import reload_settings
+    settings = reload_settings()
     args = _parse_args()
 
     mode = args.mode
+    print_startup_banner(mode)
 
     if mode == "streamlit":
-        port = args.port or int(os.environ.get("STREAMLIT_PORT", 8501))
+        port = args.port or settings.deployment.port_streamlit
         run_streamlit(port=port)
 
     elif mode == "api":
-        port = args.port or int(os.environ.get("API_PORT", 8000))
+        port = args.port or settings.deployment.port_api
         run_api(port=port, workers=1, reload=args.reload)
 
     elif mode == "worker":
-        port = args.port or int(os.environ.get("API_PORT", 8000))
-        workers = args.workers or int(os.environ.get("API_WORKERS", 2))
+        port = args.port or settings.deployment.port_api
+        workers = args.workers or settings.deployment.api_workers
         run_api(port=port, workers=workers, reload=False)
 
     elif mode == "cli":

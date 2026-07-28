@@ -32,7 +32,7 @@ from api.mcp_routes import router as mcp_router
 from api.metrics import snapshot
 from api.routes import router
 from api.schemas import MetricsResponse
-from config import validate_startup
+from config import get_allowed_origins, validate_startup
 from logging_config import configure_logging
 from mcp_platform.manager import get_mcp_manager
 from tools.memory import cleanup_old_sessions
@@ -83,6 +83,26 @@ async def lifespan(app: FastAPI):
     except Exception:
         LOGGER.exception("api_startup_mcp_init_failed")
 
+    try:
+        from config import settings
+        from api.rate_limiter import rate_limit_chat, rate_limit_verify, rate_limit_default
+        LOGGER.info(
+            "api_startup_config",
+            extra={
+                "environment": settings.app.env,
+                "fingerprint": settings.get_fingerprint(),
+                "allowed_origins": get_allowed_origins(),
+                "report": settings.get_startup_report(),
+                "rate_limits": {
+                    "chat": f"{rate_limit_chat.times} requests per {rate_limit_chat.seconds}s",
+                    "verify": f"{rate_limit_verify.times} requests per {rate_limit_verify.seconds}s",
+                    "default": f"{rate_limit_default.times} requests per {rate_limit_default.seconds}s",
+                },
+            },
+        )
+    except Exception:
+        LOGGER.warning("api_startup_config_logging_failed", exc_info=True)
+
     # Signal readiness — /health/ready now returns 200
     mark_ready()
     LOGGER.info("api_ready")
@@ -107,10 +127,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow all origins in dev; tighten in production via env
+# CORS configuration: load whitelisted origins from the centralized config module.
+# To support session cookies and authorization headers securely in bank systems,
+# allow_credentials is set to True. Under the W3C spec, this constraint prevents
+# the use of wildcard '*' origins, which is validated during config loading.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
+    allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

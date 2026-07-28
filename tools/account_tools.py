@@ -25,6 +25,7 @@ successful login.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone, timedelta
 import hashlib
 import logging
 import sqlite3
@@ -44,8 +45,10 @@ try:
 
     _ph = _Argon2PasswordHasher()
     _ARGON2_AVAILABLE = True
+    _DUMMY_HASH = _ph.hash("0000")
 except ImportError:  # pragma: no cover
     _ARGON2_AVAILABLE = False
+    _DUMMY_HASH = hashlib.sha256(b"dummy").hexdigest()
     LOGGER.warning(
         "argon2_cffi_not_installed: falling back to SHA-256 for PIN hashing. "
         "Run `pip install argon2-cffi` for secure hashing."
@@ -106,74 +109,157 @@ def _connect(db_path=None):
 # ---------------------------------------------------------------------------
 
 
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION_MINUTES = 15
+
+
 def verify_identity(user_id: str, pin: str) -> dict:
     """
     Verify a user's identity by user_id + 4-digit PIN.
     This is the ONLY function that unlocks access to account/fraud tools —
     it is called from a deterministic graph node, not left to LLM discretion.
 
-    On success with a legacy SHA-256 hash, the hash is transparently upgraded
-    to Argon2id so future logins use the stronger algorithm.
+    Failed attempts are tracked per user_id. After 5 consecutive failures,
+    the account is temporarily locked for 15 minutes.
+    Success resets the failure counter to 0. All operations are atomic.
     """
     conn = _connect()
     try:
-        row = conn.execute(
-            "SELECT user_id, first_name, pin_hash FROM users WHERE user_id = ?",
-            (user_id,),
-        ).fetchone()
+        with conn:
+            row = conn.execute(
+                "SELECT user_id, first_name, pin_hash, failed_attempts, locked_until "
+                "FROM users WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
 
-        if row is None:
-            return {
-                "verified": False,
-                "error": "User ID or PIN did not match our records.",
-            }
+            if row is None:
+                # Timing attack countermeasure: run a dummy verification hash
+                _verify_pin("0000", _DUMMY_HASH)
+                return {
+                    "verified": False,
+                    "error": "User ID or PIN did not match our records.",
+                }
 
-        stored_hash: str = row["pin_hash"]
-        if not _verify_pin(pin, stored_hash):
-            LOGGER.warning("verify_identity_failed", extra={"user_id": user_id})
-            return {
-                "verified": False,
-                "error": "User ID or PIN did not match our records.",
-            }
+            stored_hash: str = row["pin_hash"]
+            failed_attempts: int = row["failed_attempts"]
+            locked_until_str: str | None = row["locked_until"]
 
-        # Transparent SHA-256 → Argon2 upgrade on first successful login.
-        if _ARGON2_AVAILABLE and _is_legacy_sha256(stored_hash):
-            _rehash_to_argon2(conn, user_id, pin)
+            now = datetime.now(timezone.utc)
 
-        LOGGER.info("verify_identity_success", extra={"user_id": user_id})
-        return {
-            "verified": True,
-            "user_id": row["user_id"],
-            "first_name": row["first_name"],
-        }
+            # Check if currently locked
+            if locked_until_str:
+                try:
+                    locked_until = datetime.fromisoformat(locked_until_str)
+                    if now < locked_until:
+                        LOGGER.warning("verify_identity_blocked_locked", extra={"user_id": user_id})
+                        return {
+                            "verified": False,
+                            "error": "This account is temporarily locked due to multiple failed authentication attempts. Please try again later.",
+                        }
+                    else:
+                        # Lockout expired, treat as reset failed attempts locally first
+                        failed_attempts = 0
+                        locked_until_str = None
+                except Exception:
+                    # Gracefully recovery on malformed timestamp
+                    failed_attempts = 0
+                    locked_until_str = None
+
+            # Verify PIN
+            verified = _verify_pin(pin, stored_hash)
+
+            if verified:
+                # Successful login: reset failed_attempts and locked_until
+                conn.execute(
+                    "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE user_id = ?",
+                    (user_id,),
+                )
+
+                # Transparent SHA-256 → Argon2 upgrade on first successful login.
+                if _ARGON2_AVAILABLE and _is_legacy_sha256(stored_hash):
+                    new_hash = _ph.hash(pin)
+                    conn.execute(
+                        "UPDATE users SET pin_hash = ? WHERE user_id = ?",
+                        (new_hash, user_id),
+                    )
+                    LOGGER.info("pin_rehashed_to_argon2", extra={"user_id": user_id})
+
+                LOGGER.info("verify_identity_success", extra={"user_id": user_id})
+                return {
+                    "verified": True,
+                    "user_id": row["user_id"],
+                    "first_name": row["first_name"],
+                }
+            else:
+                # Failed login: increment failed_attempts
+                failed_attempts += 1
+                new_locked_until = None
+                if failed_attempts >= MAX_FAILED_ATTEMPTS:
+                    lock_time = now + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+                    new_locked_until = lock_time.isoformat()
+                    conn.execute(
+                        "UPDATE users SET failed_attempts = ?, locked_until = ? WHERE user_id = ?",
+                        (failed_attempts, new_locked_until, user_id),
+                    )
+                    LOGGER.warning(
+                        "verify_identity_locked",
+                        extra={"user_id": user_id, "failed_attempts": failed_attempts, "locked_until": new_locked_until}
+                    )
+                    return {
+                        "verified": False,
+                        "error": "This account is temporarily locked due to multiple failed authentication attempts. Please try again later.",
+                    }
+                else:
+                    conn.execute(
+                        "UPDATE users SET failed_attempts = ?, locked_until = ? WHERE user_id = ?",
+                        (failed_attempts, locked_until_str, user_id),
+                    )
+                    LOGGER.warning("verify_identity_failed", extra={"user_id": user_id, "failed_attempts": failed_attempts})
+                    return {
+                        "verified": False,
+                        "error": "User ID or PIN did not match our records.",
+                    }
     finally:
         conn.close()
 
 
 def get_balance(user_id: str, account_id: str | None = None) -> dict:
     """
-    Get balance for a specific account, or all accounts for a user if
-    account_id is omitted.
+    Get balance for a specific account, or all accounts for a user if account_id is omitted.
+    Uses authoritative balance_paise (integer minor units).
     """
+    from utils.money import paise_to_rupees, format_currency
+
     conn = _connect()
     try:
         if account_id:
             row = conn.execute(
-                "SELECT account_id, account_type, balance, currency FROM accounts "
+                "SELECT account_id, account_type, balance_paise, currency FROM accounts "
                 "WHERE user_id = ? AND account_id = ?",
                 (user_id, account_id),
             ).fetchone()
             if row is None:
                 return {"error": f"No account {account_id} found for this user."}
-            return dict(row)
+            res = dict(row)
+            paise = res["balance_paise"]
+            res["balance"] = paise_to_rupees(paise)  # Read-only compatibility field
+            res["balance_formatted"] = format_currency(paise, currency=res.get("currency", "INR"))
+            return res
 
         rows = conn.execute(
-            "SELECT account_id, account_type, balance, currency FROM accounts WHERE user_id = ?",
+            "SELECT account_id, account_type, balance_paise, currency FROM accounts WHERE user_id = ?",
             (user_id,),
         ).fetchall()
         if not rows:
             return {"error": "No accounts found for this user."}
-        return {"accounts": [dict(r) for r in rows]}
+        formatted_rows = []
+        for r in rows:
+            res = dict(r)
+            paise = res["balance_paise"]
+            res["balance"] = paise_to_rupees(paise)  # Read-only compatibility field
+            res["balance_formatted"] = format_currency(paise, currency=res.get("currency", "INR"))
+            formatted_rows.append(res)
+        return {"accounts": formatted_rows}
     finally:
         conn.close()
 
@@ -183,11 +269,13 @@ def get_transaction_history(
 ) -> dict:
     """
     Get recent transactions for a user, optionally scoped to one account.
+    Uses authoritative amount_paise (integer minor units).
     """
+    from utils.money import paise_to_rupees, format_currency
+
     conn = _connect()
     try:
         if account_id:
-            # confirm the account belongs to this user before returning anything
             owned = conn.execute(
                 "SELECT 1 FROM accounts WHERE user_id = ? AND account_id = ?",
                 (user_id, account_id),
@@ -195,18 +283,26 @@ def get_transaction_history(
             if not owned:
                 return {"error": f"Account {account_id} does not belong to this user."}
             rows = conn.execute(
-                "SELECT transaction_id, txn_type, amount, merchant, timestamp "
+                "SELECT transaction_id, txn_type, amount_paise, merchant, timestamp "
                 "FROM transactions WHERE account_id = ? ORDER BY timestamp DESC LIMIT ?",
                 (account_id, limit),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT t.transaction_id, t.account_id, t.txn_type, t.amount, t.merchant, t.timestamp "
+                "SELECT t.transaction_id, t.account_id, t.txn_type, t.amount_paise, t.merchant, t.timestamp "
                 "FROM transactions t JOIN accounts a ON t.account_id = a.account_id "
                 "WHERE a.user_id = ? ORDER BY t.timestamp DESC LIMIT ?",
                 (user_id, limit),
             ).fetchall()
-        return {"transactions": [dict(r) for r in rows]}
+
+        formatted_rows = []
+        for r in rows:
+            res = dict(r)
+            paise = res["amount_paise"]
+            res["amount"] = paise_to_rupees(paise)  # Read-only compatibility field
+            res["amount_formatted"] = format_currency(paise)
+            formatted_rows.append(res)
+        return {"transactions": formatted_rows}
     finally:
         conn.close()
 

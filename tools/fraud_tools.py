@@ -142,14 +142,23 @@ def report_fraud_transaction(
 
 def get_flagged_transactions(user_id: str) -> dict:
     """List all transactions currently flagged as fraud for this user."""
+    from utils.money import paise_to_rupees, format_currency
+
     conn = _connect()
     try:
         rows = conn.execute(
-            "SELECT t.transaction_id, t.account_id, t.txn_type, t.amount, t.merchant, t.timestamp "
+            "SELECT t.transaction_id, t.account_id, t.txn_type, t.amount_paise, t.merchant, t.timestamp "
             "FROM transactions t JOIN accounts a ON t.account_id = a.account_id "
             "WHERE a.user_id = ? AND t.flagged_fraud = 1 ORDER BY t.timestamp DESC",
             (user_id,),
         ).fetchall()
-        return {"flagged_transactions": [dict(r) for r in rows]}
+        formatted_rows = []
+        for r in rows:
+            res = dict(r)
+            paise = res["amount_paise"]
+            res["amount"] = paise_to_rupees(paise)  # Read-only compatibility field
+            res["amount_formatted"] = format_currency(paise)
+            formatted_rows.append(res)
+        return {"flagged_transactions": formatted_rows}
     finally:
         conn.close()

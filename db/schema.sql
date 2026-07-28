@@ -14,6 +14,8 @@ CREATE TABLE users (
     last_name     TEXT NOT NULL,
     email         TEXT UNIQUE NOT NULL,
     pin_hash      TEXT NOT NULL,         -- sha256 of a 4-digit demo PIN, never store plaintext
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until    TEXT DEFAULT NULL,
     created_at    TEXT NOT NULL
 );
 
@@ -21,7 +23,7 @@ CREATE TABLE accounts (
     account_id    TEXT PRIMARY KEY,      -- e.g. 'A2001'
     user_id       TEXT NOT NULL,
     account_type  TEXT NOT NULL CHECK (account_type IN ('checking','savings','credit')),
-    balance       REAL NOT NULL,
+    balance_paise INTEGER NOT NULL,      -- stored in integer minor units (paise / cents)
     currency      TEXT NOT NULL DEFAULT 'INR',
     is_active     INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
@@ -39,7 +41,7 @@ CREATE TABLE transactions (
     transaction_id TEXT PRIMARY KEY,     -- e.g. 'T900001'
     account_id     TEXT NOT NULL,
     txn_type       TEXT NOT NULL CHECK (txn_type IN ('deposit','withdrawal','purchase','transfer','fee','interest')),
-    amount         REAL NOT NULL,        -- negative = money out, positive = money in
+    amount_paise   INTEGER NOT NULL,     -- stored in integer minor units (negative = money out, positive = money in)
     merchant       TEXT,
     timestamp      TEXT NOT NULL,
     flagged_fraud  INTEGER NOT NULL DEFAULT 0,

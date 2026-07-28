@@ -75,26 +75,22 @@ class MCPPlatformConfig:
 
 
 def get_mcp_config() -> MCPPlatformConfig:
-    """Build MCP config from environment variables."""
-    disabled_raw = os.environ.get("MCP_DISABLED_SERVERS", "")
-    preferred_raw = os.environ.get("MCP_PREFERRED_SERVERS", "")
-
+    """Build MCP config from central settings."""
+    from config import settings
+    m = settings.mcp
     return MCPPlatformConfig(
-        auto_discover=os.environ.get("MCP_AUTO_DISCOVER", "true").lower() == "true",
-        mcp_servers_dir=os.environ.get("MCP_SERVERS_DIR", "mcp_servers"),
-        default_timeout=float(os.environ.get("MCP_DEFAULT_TIMEOUT", 30.0)),
-        max_retries=int(os.environ.get("MCP_MAX_RETRIES", 2)),
-        retry_delay=float(os.environ.get("MCP_RETRY_DELAY", 1.0)),
-        max_concurrent_tools=int(os.environ.get("MCP_MAX_CONCURRENT", 3)),
-        normalize_errors=os.environ.get("MCP_NORMALIZE_ERRORS", "true").lower()
-        == "true",
-        min_confidence_for_mcp=float(os.environ.get("MCP_MIN_CONFIDENCE", 0.60)),
-        preferred_servers=[s.strip() for s in preferred_raw.split(",") if s.strip()],
-        disabled_servers=[s.strip() for s in disabled_raw.split(",") if s.strip()],
-        feed_results_to_memory=os.environ.get("MCP_FEED_MEMORY", "true").lower()
-        == "true",
-        feed_results_to_prompt=os.environ.get("MCP_FEED_PROMPT", "true").lower()
-        == "true",
+        auto_discover=m.auto_discover,
+        mcp_servers_dir=m.mcp_servers_dir,
+        default_timeout=m.default_timeout,
+        max_retries=m.max_retries,
+        retry_delay=m.retry_delay,
+        max_concurrent_tools=m.max_concurrent_tools,
+        normalize_errors=m.normalize_errors,
+        min_confidence_for_mcp=m.min_confidence_for_mcp,
+        preferred_servers=m.preferred_servers,
+        disabled_servers=m.disabled_servers,
+        feed_results_to_memory=m.feed_results_to_memory,
+        feed_results_to_prompt=m.feed_results_to_prompt,
     )
 
 

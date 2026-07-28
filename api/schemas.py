@@ -16,6 +16,11 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 
+class AuthInput(BaseModel):
+    user_id: str = Field(..., description="e.g. 'U1002'")
+    pin: str = Field(..., min_length=4, max_length=4, description="4-digit PIN")
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, description="The user's chat message.")
     session_id: str | None = Field(
@@ -26,6 +31,10 @@ class ChatRequest(BaseModel):
         ),
     )
     channel: str = Field("api", description="Channel label stored on the session row.")
+    auth: AuthInput | None = Field(
+        None,
+        description="Structured authentication credentials if requested."
+    )
 
 
 class ChatResponse(BaseModel):
@@ -83,7 +92,9 @@ class BalanceResponse(BaseModel):
     accounts: list[dict[str, Any]] | None = None
     account_id: str | None = None
     account_type: str | None = None
+    balance_paise: int | None = None
     balance: float | None = None
+    balance_formatted: str | None = None
     currency: str | None = None
     error: str | None = None
 

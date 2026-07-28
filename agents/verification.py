@@ -16,32 +16,28 @@ from tools.account_tools import verify_identity
 
 def extract_credentials(user_message: str) -> tuple[str | None, str | None]:
     """
-    Very small heuristic extractor for the demo CLI: looks for patterns like
-    'U1002' and a standalone 4-digit PIN in the message. In a real product,
-    this would be a structured login form, not free-text parsing — free-text
-    credential parsing is a demo convenience only.
+    Deprecated: Free-text credential extraction is disabled for security.
+    Credentials must be provided via structured inputs.
     """
-    user_id_match = re.search(r"\bU\d{4}\b", user_message)
-    pin_match = re.search(
-        r"\b\d{4}\b",
-        user_message.replace(user_id_match.group() if user_id_match else "", ""),
-    )
-    user_id = user_id_match.group() if user_id_match else None
-    pin = pin_match.group() if pin_match else None
-    return user_id, pin
+    return None, None
 
 
-def try_verify(user_message: str) -> dict:
+def try_verify(
+    user_message: str | None = None,
+    user_id: str | None = None,
+    pin: str | None = None,
+) -> dict:
     """
-    Attempt to verify identity from free text. Returns:
+    Attempt to verify identity using structured user_id and pin.
+    Returns:
       {"verified": True, "user_id": "..."} on success
       {"verified": False, "error": "..."} on failure or missing info
     """
-    user_id, pin = extract_credentials(user_message)
     if not user_id or not pin:
         return {
             "verified": False,
-            "error": "To access account or security actions, please provide your user ID and 4-digit PIN, e.g. 'U1002, 1222'.",
+            "error": "To access account or security actions, please verify your identity.",
         }
     result = verify_identity(user_id, pin)
     return result
+

@@ -74,26 +74,26 @@ class MemoryConfig:
 
 
 def get_memory_config() -> MemoryConfig:
-    """Build MemoryConfig from environment variables with sane defaults."""
+    """Build MemoryConfig from central settings."""
+    from config import settings
+    mem = settings.memory
     return MemoryConfig(
-        max_conversation_turns=int(os.environ.get("MEMORY_MAX_TURNS", 50)),
-        max_long_term_memories=int(os.environ.get("MEMORY_MAX_LT", 200)),
-        max_semantic_memories=int(os.environ.get("MEMORY_MAX_SEMANTIC", 500)),
-        max_context_tokens=int(os.environ.get("MEMORY_MAX_CTX_TOKENS", 4000)),
-        similarity_threshold=float(os.environ.get("MEMORY_SIM_THRESHOLD", 0.35)),
-        top_k_semantic=int(os.environ.get("MEMORY_TOP_K_SEMANTIC", 5)),
-        top_k_recency=int(os.environ.get("MEMORY_TOP_K_RECENCY", 10)),
-        top_k_context=int(os.environ.get("MEMORY_TOP_K_CTX", 8)),
-        summary_threshold_turns=int(os.environ.get("MEMORY_SUMMARY_THRESHOLD", 20)),
-        summary_max_tokens=int(os.environ.get("MEMORY_SUMMARY_MAX_TOKENS", 600)),
-        importance_weight=float(os.environ.get("MEMORY_IMPORTANCE_W", 0.4)),
-        recency_weight=float(os.environ.get("MEMORY_RECENCY_W", 0.3)),
-        relevance_weight=float(os.environ.get("MEMORY_RELEVANCE_W", 0.3)),
-        session_ttl_days=int(os.environ.get("MEMORY_SESSION_TTL_DAYS", 90)),
-        long_term_ttl_days=int(os.environ.get("MEMORY_LT_TTL_DAYS", 365)),
-        conversation_ttl_days=int(os.environ.get("MEMORY_CONV_TTL_DAYS", 30)),
-        recency_half_life_hours=float(os.environ.get("MEMORY_HALF_LIFE_HOURS", 48.0)),
-        chroma_collection_name=os.environ.get(
-            "MEMORY_CHROMA_COLLECTION", "memory_semantic"
-        ),
+        max_conversation_turns=mem.max_conversation_turns,
+        max_long_term_memories=mem.max_long_term_memories,
+        max_semantic_memories=mem.max_semantic_memories,
+        max_context_tokens=mem.max_context_tokens,
+        similarity_threshold=mem.similarity_threshold,
+        top_k_semantic=mem.top_k_semantic,
+        top_k_recency=mem.top_k_recency,
+        top_k_context=mem.top_k_context,
+        summary_threshold_turns=mem.summary_threshold_turns,
+        summary_max_tokens=mem.summary_max_tokens,
+        importance_weight=mem.importance_weight,
+        recency_weight=mem.recency_weight,
+        relevance_weight=mem.relevance_weight,
+        session_ttl_days=mem.session_ttl_days,
+        long_term_ttl_days=mem.long_term_ttl_days,
+        conversation_ttl_days=mem.conversation_ttl_days,
+        recency_half_life_hours=mem.recency_half_life_hours,
+        chroma_collection_name=mem.chroma_collection_name,
     )

@@ -162,7 +162,9 @@ curl -X POST http://localhost:8000/chat \
     {
       "account_id": "A1002",
       "account_type": "savings",
+      "balance_paise": 500000,
       "balance": 5000.00,
+      "balance_formatted": "₹5,000.00",
       "currency": "INR"
     }
   ]

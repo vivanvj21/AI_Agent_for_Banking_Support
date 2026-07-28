@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from graph import build_graph
 from tools import memory
@@ -52,3 +52,50 @@ def require_verified_user(session_id: str) -> str:
             ),
         )
     return user_id
+
+
+EXEMPT_PATHS = {
+    "/health",
+    "/health/live",
+    "/health/ready",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+}
+
+
+def verify_perimeter_api_key(request: Request) -> None:
+    """
+    Perimeter Security Control (Phase 12).
+
+    Validates HTTP X-API-Key header against settings.security.api_key using
+    constant-time comparison (secrets.compare_digest). Executes BEFORE rate limiting
+    to prevent unauthenticated quota exhaustion.
+
+    Exempt paths: /health, /health/live, /health/ready, /docs, /redoc, /openapi.json.
+    """
+    import secrets
+    from fastapi import status
+    from config import settings
+
+    path = request.url.path
+    if path in EXEMPT_PATHS:
+        return
+
+    sec_cfg = settings.security
+    if not sec_cfg.require_api_key:
+        return
+
+    configured_key = sec_cfg.api_key.get_secret_value()
+    if not configured_key:
+        return
+
+    header_name = sec_cfg.api_key_header_name
+    provided_key = request.headers.get(header_name) or request.headers.get(header_name.lower())
+
+    if not provided_key or not secrets.compare_digest(provided_key, configured_key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )

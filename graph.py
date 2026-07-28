@@ -190,8 +190,14 @@ def verify_gate_node(state: AgentState) -> AgentState:
         turn=state.get("turn", 0),
     )
     with trace_node("verify_gate", metadata=meta, tags=["node:verify_gate"]):
-        last_user_msg = state["messages"][-1]["content"]
-        result = try_verify(last_user_msg)
+        auth_user_id = state.get("auth_user_id")
+        auth_pin = state.get("auth_pin")
+
+        # Zero/Clear the PIN from state immediately to prevent leakage
+        if "auth_pin" in state:
+            state["auth_pin"] = None
+
+        result = try_verify(user_id=auth_user_id, pin=auth_pin)
 
         if result.get("verified"):
             state["verified"] = True
@@ -414,6 +420,8 @@ def new_session_state(channel: str = "cli") -> AgentState:
         "intent": None,
         "user_id": None,
         "verified": False,
+        "auth_user_id": None,
+        "auth_pin": None,
         "retry_count": 0,
         "max_retries": 3,
         "tool_calls_log": [],
@@ -449,6 +457,8 @@ def resume_session(session_id: str) -> AgentState:
         "intent": None,
         "user_id": user_id,
         "verified": bool(user_id),
+        "auth_user_id": None,
+        "auth_pin": None,
         "retry_count": 0,
         "max_retries": 3,
         "tool_calls_log": [],

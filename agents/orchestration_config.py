@@ -60,22 +60,21 @@ class OrchestrationConfig:
 
 
 def get_orchestration_config() -> OrchestrationConfig:
-    """Build config from environment variables with sane defaults."""
+    """Build config from central settings."""
+    from config import settings
+    orch = settings.orchestration
     return OrchestrationConfig(
-        high_confidence_threshold=float(os.environ.get("ORCH_HIGH_CONF", 0.75)),
-        medium_confidence_threshold=float(os.environ.get("ORCH_MED_CONF", 0.50)),
-        low_confidence_threshold=float(os.environ.get("ORCH_LOW_CONF", 0.30)),
-        fallback_threshold=float(os.environ.get("ORCH_FALLBACK_CONF", 0.20)),
-        max_fallback_attempts=int(os.environ.get("ORCH_MAX_FALLBACKS", 2)),
-        enable_multi_agent_collab=os.environ.get("ORCH_ENABLE_COLLAB", "true").lower()
-        == "true",
-        max_context_tokens=int(os.environ.get("ORCH_MAX_CTX_TOKENS", 3000)),
-        max_conversation_history_turns=int(
-            os.environ.get("ORCH_MAX_HISTORY_TURNS", 10)
-        ),
-        max_rag_chunks=int(os.environ.get("ORCH_MAX_RAG_CHUNKS", 5)),
-        max_memory_facts=int(os.environ.get("ORCH_MAX_MEMORY_FACTS", 8)),
-        supervisor_model=os.environ.get("ORCH_SUPERVISOR_MODEL", "claude-haiku-4-5"),
+        high_confidence_threshold=orch.high_confidence_threshold,
+        medium_confidence_threshold=orch.medium_confidence_threshold,
+        low_confidence_threshold=orch.low_confidence_threshold,
+        fallback_threshold=orch.fallback_threshold,
+        max_fallback_attempts=orch.max_fallback_attempts,
+        enable_multi_agent_collab=orch.enable_multi_agent_collab,
+        max_context_tokens=orch.max_context_tokens,
+        max_conversation_history_turns=orch.max_history_turns,
+        max_rag_chunks=orch.max_rag_chunks,
+        max_memory_facts=orch.max_memory_facts,
+        supervisor_model=orch.supervisor_model,
     )
 
 

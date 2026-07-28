@@ -216,6 +216,56 @@ def main() -> int:
         return 2
 
     while True:
+        # Check if verification is required based on the last graph state
+        if not state.get("verified") and state.get("intent") in ("account", "fraud"):
+            print("\nIdentity verification is required to proceed.")
+            choice = input("Would you like to verify your identity now? (y/n): ").strip().lower()
+            if choice in ("y", "yes"):
+                auth_user_id = input("User ID: ").strip()
+                import getpass
+                auth_pin = getpass.getpass("PIN: ").strip()
+                state["auth_user_id"] = auth_user_id
+                state["auth_pin"] = auth_pin
+
+                try:
+                    state["turn"] += 1
+                    LOGGER.info("cli_turn_start", extra={"turn": state["turn"]})
+                    state = app.invoke(state)
+                    persist_turn(state, "[Authenticated]")
+                    LOGGER.info("cli_turn_complete", extra={"turn": state["turn"]})
+
+                    # Sync local message history
+                    state["messages"].append({
+                        "role": "assistant",
+                        "content": "To access account or security actions, please verify your identity."
+                    })
+                    state["messages"].append({
+                        "role": "user",
+                        "content": "[Authenticated]"
+                    })
+                    if state.get("reply"):
+                        state["messages"].append({
+                            "role": "assistant",
+                            "content": state["reply"]
+                        })
+                except MissingAPIKeyError as exc:
+                    LOGGER.warning("cli_missing_api_key")
+                    print(f"\nConfiguration problem: {exc}")
+                    return 2
+                except Exception:
+                    LOGGER.exception("cli_turn_failed")
+                    print("\nAssistant: Sorry, something went wrong while processing that request.")
+                    continue
+
+                print(f"\nAssistant: {state['reply']}")
+                if state.get("end_session"):
+                    print("\n[Session ended by assistant.]")
+                    return 0
+                continue
+            else:
+                # Clear the intent so the supervisor can reclassify the next input
+                state["intent"] = None
+
         try:
             user_input = input("\nYou: ").strip()
         except (EOFError, KeyboardInterrupt):
@@ -242,6 +292,8 @@ def main() -> int:
             LOGGER.info("cli_turn_start", extra={"turn": state["turn"]})
             state = app.invoke(state)
             persist_turn(state, user_input)
+            if state.get("reply"):
+                state["messages"].append({"role": "assistant", "content": state["reply"]})
             LOGGER.info("cli_turn_complete", extra={"turn": state["turn"]})
         except MissingAPIKeyError as exc:
             LOGGER.warning("cli_missing_api_key")

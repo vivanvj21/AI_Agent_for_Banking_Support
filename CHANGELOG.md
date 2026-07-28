@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [Phase 11] — 2026-07-28 — Production Cleanup & Security Hardening
+
+### Added & Completed Steps
+- **Step 1 — Structured Authentication**: Removed plaintext PINs from chat messages. Replaced regex extraction with explicit `auth_user_id` and `auth_pin` API schema fields. PIN memory is wiped immediately after verification.
+- **Step 2 — Temporary Account Lockout**: Added Argon2id PIN hashing and 15-minute temporary lockout after 5 failed verification attempts, tracked atomically in database (`failed_attempts`, `locked_until`).
+- **Step A — CORS Hardening**: Centralized CORS allowed-origins resolution in `config.py` (`get_allowed_origins()`). Enforced wildcard `*` rejection when credentials are enabled.
+- **Step B — API Rate Limiting**: Added thread-safe sliding-window rate limiter in `api/rate_limiter.py` applied across `/chat`, `/verify`, `/account/*`, `/fraud/*`, and `/faq/*` endpoints.
+- **Step D — Configuration & Secrets Architecture**: Established single authoritative configuration hub (`config.py` / `AppConfig` / `settings` proxy) with 12 domain sub-settings, `SecretStr` secret redaction, SHA-256 configuration fingerprinting, and pre-flight validation.
+- **Step E — Fixed-Point Money Storage**: Eliminated floating-point monetary storage (`REAL`). Replaced with authoritative integer minor units (`balance_paise`, `amount_paise`). Added `utils/money.py` (`to_paise()`, `format_currency()`), pre-commit foreign key check (`PRAGMA foreign_key_check`), trigger preservation, and auditable data normalization logging (`legacy_money_data_corruption_normalized`).
+- **Step F — Repository Cleanup & Documentation Finalization**: Removed unreferenced root scripts (`verify_merge.py`, `verify_db.py`, `test_cli_execution.py`), audited and fixed relative Markdown links across docs, updated Known Architectural Limitations and Current State & Next Steps, and verified full 237/237 test suite pass rate.
+
 ---
 
 ## [Phase 10] — 2026-07-26 — Documentation & Repository Polish

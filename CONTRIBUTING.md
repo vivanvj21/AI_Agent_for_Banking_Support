@@ -77,11 +77,11 @@ pytest tests/ --tb=short              # compact output
 
 ## Adding a New Agent
 
-See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#how-to-add-a-new-agent).
+See [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md#how-to-add-a-new-agent).
 
 ## Adding a New MCP Server
 
-See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#how-to-add-a-new-mcp-server).
+See [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md#how-to-add-a-new-mcp-server).
 
 ---
 

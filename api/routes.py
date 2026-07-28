@@ -27,10 +27,11 @@ from __future__ import annotations
 import logging
 import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_graph, require_verified_user
 from api.metrics import record_request
+from api.rate_limiter import rate_limit_chat, rate_limit_verify, rate_limit_default
 from api.schemas import (
     BalanceRequest,
     BalanceResponse,
@@ -71,7 +72,7 @@ def _timed(endpoint_name: str):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_chat)])
 def chat(payload: ChatRequest) -> ChatResponse:
     name, start = _timed("chat")
     try:
@@ -81,6 +82,10 @@ def chat(payload: ChatRequest) -> ChatResponse:
             state = resume_session(payload.session_id)
         else:
             state = new_session_state(channel=payload.channel)
+
+        if payload.auth:
+            state["auth_user_id"] = payload.auth.user_id
+            state["auth_pin"] = payload.auth.pin
 
         state["turn"] += 1
         state["messages"].append({"role": "user", "content": payload.message})
@@ -116,7 +121,7 @@ def chat(payload: ChatRequest) -> ChatResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/verify", response_model=VerifyResponse)
+@router.post("/verify", response_model=VerifyResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_verify)])
 def verify(payload: VerifyRequest) -> VerifyResponse:
     name, start = _timed("verify")
     try:
@@ -155,7 +160,7 @@ def verify(payload: VerifyRequest) -> VerifyResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/account/balance", response_model=BalanceResponse)
+@router.post("/account/balance", response_model=BalanceResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_default)])
 def account_balance(payload: BalanceRequest) -> BalanceResponse:
     name, start = _timed("account_balance")
     try:
@@ -171,7 +176,7 @@ def account_balance(payload: BalanceRequest) -> BalanceResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/account/history", response_model=HistoryResponse)
+@router.post("/account/history", response_model=HistoryResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_default)])
 def account_history(payload: HistoryRequest) -> HistoryResponse:
     name, start = _timed("account_history")
     try:
@@ -189,7 +194,7 @@ def account_history(payload: HistoryRequest) -> HistoryResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/fraud/lock-card", response_model=LockCardResponse)
+@router.post("/fraud/lock-card", response_model=LockCardResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_default)])
 def fraud_lock_card(payload: LockCardRequest) -> LockCardResponse:
     name, start = _timed("fraud_lock_card")
     try:
@@ -205,7 +210,7 @@ def fraud_lock_card(payload: LockCardRequest) -> LockCardResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/fraud/report", response_model=ReportFraudResponse)
+@router.post("/fraud/report", response_model=ReportFraudResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_default)])
 def fraud_report(payload: ReportFraudRequest) -> ReportFraudResponse:
     name, start = _timed("fraud_report")
     try:
@@ -223,7 +228,7 @@ def fraud_report(payload: ReportFraudRequest) -> ReportFraudResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/faq/search", response_model=FaqSearchResponse)
+@router.post("/faq/search", response_model=FaqSearchResponse, dependencies=[Depends(verify_perimeter_api_key), Depends(rate_limit_default)])
 def faq_search_route(payload: FaqSearchRequest) -> FaqSearchResponse:
     name, start = _timed("faq_search")
     try:

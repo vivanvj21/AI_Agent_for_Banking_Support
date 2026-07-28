@@ -58,12 +58,13 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
                 "voyageai package not installed. Run: pip install voyageai"
             )
         import voyageai
+        from config import settings
 
-        api_key = os.environ.get("VOYAGE_API_KEY")
+        api_key = settings.embedding.voyage_api_key.get_secret_value()
         if not api_key:
             raise RuntimeError("VOYAGE_API_KEY environment variable is not set.")
         self.client = voyageai.Client(api_key=api_key)
-        self.model = model or os.environ.get("VOYAGE_MODEL", "voyage-3.5")
+        self.model = model or settings.embedding.voyage_model
         self.model_name = self.model
         # voyage-3.5 currently returns 1024-dimensional vectors. Keep this
         # as metadata only so model overrides do not break runtime behavior.
@@ -127,7 +128,8 @@ def get_default_provider() -> EmbeddingProvider:
     Selects Voyage if VOYAGE_API_KEY is set and the package is importable,
     otherwise falls back to the local provider with a clear stderr warning.
     """
-    if os.environ.get("VOYAGE_API_KEY"):
+    from config import settings
+    if settings.embedding.voyage_api_key.get_secret_value():
         try:
             return VoyageEmbeddingProvider()
         except Exception as e:  # noqa: BLE001

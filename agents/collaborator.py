@@ -122,10 +122,15 @@ def run_account_agent_assist(
         accounts = result.get("accounts", [])
         if not accounts:
             return ""
-        lines = [
-            f"Account {a.get('account_id')}: {a.get('currency', 'INR')} {a.get('balance', 0):,.2f}"
-            for a in accounts[:3]
-        ]
+        lines = []
+        for a in accounts[:3]:
+            acc_id = a.get("account_id")
+            bal_fmt = a.get("balance_formatted")
+            if not bal_fmt:
+                curr = a.get("currency", "INR")
+                bal = a.get("balance", 0)
+                bal_fmt = f"{curr} {bal:,.2f}"
+            lines.append(f"Account {acc_id}: {bal_fmt}")
         return "Current balances:\n" + "\n".join(lines)
     except Exception as exc:
         LOGGER.warning("collab_account_failed", extra={"error": str(exc)})

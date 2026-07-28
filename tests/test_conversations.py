@@ -45,7 +45,8 @@ CASES = [
     },
     {
         "name": "balance_check_with_creds",
-        "turns": ["What's my balance? U1002, 1222"],
+        "turns": ["What's my balance?"],
+        "auth": {"user_id": "U1002", "pin": "1222"},
         "expected_intent": "account",
         "expected_tools": {"get_balance"},
         "check": lambda reply: any(ch.isdigit() for ch in reply),
@@ -55,23 +56,23 @@ CASES = [
         "turns": ["What's my balance?"],
         "expected_intent": "account",
         "expected_tools": set(),  # should NOT call any tool — must ask for credentials first
-        "check": lambda reply: "pin" in reply.lower() or "user id" in reply.lower(),
+        "check": lambda reply: "verify" in reply.lower() or "identity" in reply.lower(),
     },
     {
         "name": "lock_card_with_creds",
-        "turns": ["Please lock my card C3003. U1002, 1222"],
+        "turns": ["Please lock my card C3003."],
+        "auth": {"user_id": "U1002", "pin": "1222"},
         "expected_intent": "fraud",
         "expected_tools": {"lock_card"},
         "check": lambda reply: "lock" in reply.lower(),
     },
     {
         "name": "wrong_pin_rejected",
-        "turns": ["What's my balance? U1002, 9999"],
+        "turns": ["What's my balance?"],
+        "auth": {"user_id": "U1002", "pin": "9999"},
         "expected_intent": "account",
         "expected_tools": set(),
-        "check": lambda reply: "match" in reply.lower()
-        or "verify" in reply.lower()
-        or "pin" in reply.lower(),
+        "check": lambda reply: "verify" in reply.lower() or "identity" in reply.lower(),
     },
     {
         "name": "greeting_clarify",
@@ -92,6 +93,9 @@ def run_case(case):
         state["turn"] += 1
         state["messages"].append({"role": "user", "content": turn})
         state["reply"] = None
+        if "auth" in case:
+            state["auth_user_id"] = case["auth"]["user_id"]
+            state["auth_pin"] = case["auth"]["pin"]
         state = app.invoke(state)
     elapsed = time.time() - start
 

@@ -44,6 +44,8 @@ class AgentState(TypedDict):
     # identity / auth
     user_id: NotRequired[str | None]
     verified: bool
+    auth_user_id: NotRequired[str | None]
+    auth_pin: NotRequired[str | None]
 
     # loop / failure control
     retry_count: int
@@ -57,3 +59,4 @@ class AgentState(TypedDict):
 
     # set True to end the conversation loop (CLI checks this)
     end_session: NotRequired[bool]
+

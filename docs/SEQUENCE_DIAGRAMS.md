@@ -73,15 +73,16 @@ sequenceDiagram
     participant VGate as verify_gate
     participant Agent as account_agent
 
-    User->>Interface: "Check my balance — U1002, 2222"
+    User->>Interface: "Check my balance" (Payload: structured authentication fields auth_user_id="U1002", auth_pin="2222")
 
     Note over Graph,Supervisor: First turn — not verified
-    Interface->>Graph: invoke(state[verified=false])
+    Interface->>Graph: invoke(state[verified=false, auth_user_id="U1002", auth_pin="2222"])
     Graph->>Supervisor: classify → intent=account, confidence=0.91
     Graph->>VGate: verify_gate_node(state)
-    VGate->>VGate: extract_credentials("U1002, 2222") → user_id=U1002, pin=2222
-    VGate->>VGate: verify_identity(U1002, 2222) → Argon2 check → {verified: true}
-    VGate-->>Graph: state[verified=true, user_id=U1002]
+    VGate->>VGate: Read structured authentication fields auth_user_id="U1002", auth_pin="2222"
+    VGate->>VGate: Clear state["auth_pin"] = None immediately after reading and before tracing/tool use
+    VGate->>VGate: verify_identity("U1002", "2222") → Argon2id check → {verified: true}
+    VGate-->>Graph: state[verified=true, user_id="U1002"]
     Graph->>Agent: account_agent_node(state)
     Agent->>Agent: build_account_prompt(memory_context) → system_prompt
     Agent->>Agent: run_account_agent(message, user_id=U1002, ...)

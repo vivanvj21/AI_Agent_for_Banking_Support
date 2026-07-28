@@ -11,6 +11,9 @@ from logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
 
+# Configure logging once
+configure_logging()
+
 
 def safe_mcp_call(tool_name: str, func: Callable[..., dict], **kwargs: Any) -> dict:
     """Run an MCP tool with initialization, logging, and structured errors."""

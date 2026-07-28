@@ -49,15 +49,15 @@ def _parse_bool(value: str | None) -> bool:
 
 
 def get_langsmith_config() -> LangSmithConfig:
-    """Read LangSmith configuration from environment variables.
+    """Read LangSmith configuration from central settings.
 
     Never raises — returns a disabled config on any error.
     """
     try:
-        enabled = _parse_bool(os.environ.get("LANGSMITH_TRACING"))
-        api_key = os.environ.get("LANGSMITH_API_KEY") or None
-        project = os.environ.get("LANGSMITH_PROJECT") or "bank-assistant"
-        endpoint = os.environ.get("LANGSMITH_ENDPOINT") or None
+        from config import settings
+        obs = settings.observability
+        api_key = obs.api_key.get_secret_value() or None
+        enabled = obs.enabled
 
         if enabled and not api_key:
             LOGGER.warning(
@@ -69,8 +69,8 @@ def get_langsmith_config() -> LangSmithConfig:
         return LangSmithConfig(
             enabled=enabled,
             api_key=api_key,
-            project=project,
-            endpoint=endpoint,
+            project=obs.project,
+            endpoint=obs.endpoint,
         )
     except Exception:
         LOGGER.exception("langsmith_config_read_failed; tracing disabled")

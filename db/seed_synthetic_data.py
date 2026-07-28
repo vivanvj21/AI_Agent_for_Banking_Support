@@ -70,7 +70,11 @@ def seed_users(conn, n=8):
         ).isoformat()
         users.append((uid, first, last, email, hash_pin(pin), created))
         print(f"  {uid}: {first} {last} — demo PIN {pin}")
-    conn.executemany("INSERT INTO users VALUES (?,?,?,?,?,?)", users)
+    conn.executemany(
+        "INSERT INTO users (user_id, first_name, last_name, email, pin_hash, created_at) "
+        "VALUES (?,?,?,?,?,?)",
+        users
+    )
     return [u[0] for u in users]
 
 
@@ -78,6 +82,8 @@ def seed_accounts_and_cards(conn, user_ids):
     accounts = []
     cards = []
     acc_counter = 2001
+    from utils.money import to_paise
+
     card_counter = 3001
     for uid in user_ids:
         types = random.sample(
@@ -87,12 +93,12 @@ def seed_accounts_and_cards(conn, user_ids):
             aid = f"A{acc_counter}"
             acc_counter += 1
             if t == "checking":
-                balance = round(random.uniform(5000, 80000), 2)
+                balance_paise = to_paise(random.uniform(5000, 80000))
             elif t == "savings":
-                balance = round(random.uniform(20000, 500000), 2)
+                balance_paise = to_paise(random.uniform(20000, 500000))
             else:  # credit — balance represents amount owed, positive = owed
-                balance = round(random.uniform(0, 60000), 2)
-            accounts.append((aid, uid, t, balance, "INR", 1))
+                balance_paise = to_paise(random.uniform(0, 60000))
+            accounts.append((aid, uid, t, balance_paise, "INR", 1))
 
             if t in ("checking", "credit"):
                 cid = f"C{card_counter}"
@@ -106,6 +112,8 @@ def seed_accounts_and_cards(conn, user_ids):
 
 
 def seed_transactions(conn, account_ids, per_account=(15, 30)):
+    from utils.money import to_paise
+
     txns = []
     txn_counter = 900001
     now = datetime.now(timezone.utc)
@@ -122,15 +130,15 @@ def seed_transactions(conn, account_ids, per_account=(15, 30)):
             flagged = 0
 
             if txn_type == "deposit":
-                amount = round(random.uniform(500, 20000), 2)
+                amount_paise = to_paise(random.uniform(500, 20000))
             elif txn_type in ("withdrawal", "purchase"):
-                amount = -round(random.uniform(50, 5000), 2)
+                amount_paise = -to_paise(random.uniform(50, 5000))
             elif txn_type == "transfer":
-                amount = round(random.uniform(-10000, 10000), 2)
+                amount_paise = to_paise(random.uniform(-10000, 10000))
             elif txn_type == "fee":
-                amount = -round(random.uniform(10, 200), 2)
+                amount_paise = -to_paise(random.uniform(10, 200))
             else:  # interest
-                amount = round(random.uniform(1, 50), 2)
+                amount_paise = to_paise(random.uniform(1, 50))
 
             # Inject occasional fraud-pattern transactions (~4% of rows)
             if random.random() < 0.04:
@@ -139,14 +147,14 @@ def seed_transactions(conn, account_ids, per_account=(15, 30)):
                 )
                 if pattern == "odd_hour_large":
                     ts = ts.replace(hour=random.choice([1, 2, 3, 4]))
-                    amount = -round(random.uniform(20000, 90000), 2)
+                    amount_paise = -to_paise(random.uniform(20000, 90000))
                     txn_type, merchant = "purchase", random.choice(MERCHANTS)
                 elif pattern == "foreign_merchant":
                     txn_type, merchant = "purchase", random.choice(FOREIGN_MERCHANTS)
-                    amount = -round(random.uniform(5000, 40000), 2)
+                    amount_paise = -to_paise(random.uniform(5000, 40000))
                 else:  # structuring: suspiciously round numbers just under typical thresholds
                     txn_type, merchant = "withdrawal", None
-                    amount = -round(random.choice([9999, 9500, 9900]), 2)
+                    amount_paise = -to_paise(random.choice([9999, 9500, 9900]))
                 flagged = 1
 
             txns.append(
@@ -154,7 +162,7 @@ def seed_transactions(conn, account_ids, per_account=(15, 30)):
                     f"T{txn_counter}",
                     aid,
                     txn_type,
-                    amount,
+                    amount_paise,
                     merchant,
                     ts.isoformat(),
                     flagged,

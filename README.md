@@ -54,6 +54,7 @@ The system accepts natural language queries from customers and routes them intel
 | 8 | Intelligent Orchestration | ✅ Complete |
 | 9 | MCP Platform Integration | ✅ Complete |
 | 10 | Documentation & Polish | ✅ Complete |
+| 11 | Production Cleanup & Security Hardening | ✅ Complete |
 
 ---
 
@@ -569,17 +570,46 @@ Results are written to `evaluation/results/` as JSON and CSV for historical comp
 
 ---
 
+## Security Model & Known Limitations
+
+### Security Architecture (Verified)
+- **Structured Authentication**: Identity verification uses explicit `auth_user_id` and `auth_pin` payload fields; raw PINs are purged from graph memory before LLM context generation or tracing.
+- **Account Lockout**: 5 failed verification attempts trigger a 15-minute temporary account lockout enforced atomically in SQLite (`failed_attempts`, `locked_until`).
+- **Argon2id Hashing**: Demo PINs are securely hashed using Argon2id with automatic timing-attack mitigation.
+- **CORS Hardening**: Centralized origin whitelist with explicit wildcard `*` rejection when credentials are enabled.
+- **API Rate Limiting**: Thread-safe sliding-window rate limiter guarding `/chat`, `/verify`, `/account/*`, `/fraud/*`, and `/faq/*`.
+- **SecretStr Encapsulation**: Secrets (`ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `LANGSMITH_API_KEY`) wrapped in redacting `SecretStr` types. SHA-256 fingerprinting tracks non-sensitive configuration drift.
+- **Fixed-Point Money Storage**: All financial balances (`balance_paise`) and transaction amounts (`amount_paise`) stored as integer minor units. Migration preserves foreign keys (`PRAGMA foreign_key_check` pre-commit), triggers, sequence states, and emits auditable normalization logs for NULL values.
+
+### Known Architectural Limitations
+1. **Single-Factor Authentication**: Verification relies on a 4-digit PIN. Enterprise deployment requires multi-factor authentication (MFA).
+2. **No Perimeter API Authentication**: REST endpoints currently rely on network-level protection and session IDs. API-key or gateway token validation is required before production deployment.
+3. **Single-Node Database & Vector Store**: SQLite and in-memory ChromaDB are single-process by construction. Horizontal scaling requires PostgreSQL (documented in `docs/POSTGRES_MIGRATION.md`) and a clustered vector store.
+4. **Local Subprocess MCP Transport**: MCP tools run over stdio subprocesses (~200ms overhead). Networked MCP services are required for distributed setups.
+
+---
+
+## Current State and Next Steps
+
+The repository has completed **Phase 11 (Production Cleanup & Security Hardening)** with **237/237 tests passing**.
+
+### Prioritized Next Steps
+1. **Perimeter API Authentication**: Implement API key / OAuth bearer token validation on public REST endpoints to prevent unauthorized un-gated calls.
+2. **Adaptive Authentication & Enterprise IAM (Phase 2)**: Replace single-factor PIN lookup with signed JWTs (Okta / Auth0 / AWS Cognito) and step-up authentication for high-risk actions (card locking, fraud reporting).
+3. **PostgreSQL Migration (Phase 6)**: Execute the PostgreSQL migration plan detailed in [docs/POSTGRES_MIGRATION.md](docs/POSTGRES_MIGRATION.md).
+
+---
+
 ## Roadmap
 
-| Phase | Feature | Priority |
-|-------|---------|---------|
-| 11 | Guardrails & content filtering (Llama Guard / NeMo) | High |
-| 12 | Enterprise security — OAuth2, JWT, rate limiting | High |
-| 13 | Multi-tenant support (isolated memory + accounts per tenant) | Medium |
-| 14 | CI/CD pipeline (GitHub Actions, test gates, Docker push) | Medium |
-| 15 | Production monitoring dashboards (Grafana + Prometheus) | Medium |
-| 16 | Streaming responses (SSE / WebSocket) | Low |
-| 17 | Voice interface (Whisper STT + TTS output) | Low |
+| Phase | Feature | Status / Priority |
+|-------|---------|-------------------|
+| 11 | Production Cleanup & Security Hardening (Steps 1, 2, A, B, D, E, F) | ✅ Complete |
+| 12 | Perimeter API Gateway & Authentication | ⏳ Next Priority |
+| 13 | Enterprise IAM & Adaptive Auth (OAuth2 / JWT) | High |
+| 14 | PostgreSQL Migration & Shared Redis Rate Limiting | Medium |
+| 15 | Networked MCP Transport | Medium |
+| 16 | CI/CD Pipeline (GitHub Actions & Container Registry) | Medium |
 
 ---
 
@@ -604,7 +634,7 @@ Contributions are welcome. Please follow these steps:
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 ---
 
