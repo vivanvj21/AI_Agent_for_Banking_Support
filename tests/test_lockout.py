@@ -12,6 +12,8 @@ from tools.account_tools import verify_identity, _connect, DB_PATH
 @pytest.fixture(autouse=True)
 def reset_lockout_states():
     """Ensure user U1002 has 0 failed attempts and NULL locked_until before and after tests."""
+    from db.init_db import ensure_database
+    ensure_database(seed_demo_data=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE user_id = 'U1002'"
