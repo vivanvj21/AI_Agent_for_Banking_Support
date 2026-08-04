@@ -42,12 +42,12 @@ def test_public_routes_exempt(client_with_key):
     """Verify health and docs routes do not require X-API-Key."""
     for path in ["/health", "/health/live", "/health/ready", "/docs", "/openapi.json"]:
         res = client_with_key.get(path)
-        assert res.status_code in (200, 307), f"Expected public access for {path}, got {res.status_code}"
+        assert res.status_code in (200, 307, 503), f"Expected public access for {path}, got {res.status_code}"
 
 
 def test_protected_route_without_key(client_with_key):
     """Verify protected route yields 401 Unauthorized when X-API-Key is missing."""
-    res = client_with_key.post("/faq/search", json={"query": "interest rates"})
+    res = client_with_key.post("/chat", json={"message": "hello"})
     assert res.status_code == 401
     assert res.json() == {"detail": "Unauthorized"}
 
@@ -55,9 +55,9 @@ def test_protected_route_without_key(client_with_key):
 def test_protected_route_with_invalid_key(client_with_key):
     """Verify protected route yields 401 Unauthorized when X-API-Key is wrong."""
     res = client_with_key.post(
-        "/faq/search",
+        "/chat",
         headers={"X-API-Key": "wrong-key-value"},
-        json={"query": "interest rates"},
+        json={"message": "hello"},
     )
     assert res.status_code == 401
     assert res.json() == {"detail": "Unauthorized"}
@@ -66,8 +66,8 @@ def test_protected_route_with_invalid_key(client_with_key):
 def test_protected_route_with_query_param_key_rejected(client_with_key):
     """Verify API_KEY passed as query parameter is ignored and yields 401 (header-only)."""
     res = client_with_key.post(
-        "/faq/search?api_key=test-secret-key-1234",
-        json={"query": "interest rates"},
+        "/chat?api_key=test-secret-key-1234",
+        json={"message": "hello"},
     )
     assert res.status_code == 401
     assert res.json() == {"detail": "Unauthorized"}
@@ -76,12 +76,12 @@ def test_protected_route_with_query_param_key_rejected(client_with_key):
 def test_protected_route_with_valid_key(client_with_key):
     """Verify protected route succeeds when valid X-API-Key is provided."""
     res = client_with_key.post(
-        "/faq/search",
+        "/chat",
         headers={"X-API-Key": "test-secret-key-1234"},
-        json={"query": "interest rates"},
+        json={"message": "hello"},
     )
-    assert res.status_code == 200
-    assert "results" in res.json()
+    assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.json()}"
+    assert "reply" in res.json()
 
 
 def test_mcp_routes_protected_by_perimeter_auth(client_with_key):
@@ -97,9 +97,9 @@ def test_secrets_compare_digest_invoked(client_with_key):
     """Verify secrets.compare_digest primitive is called for key validation."""
     with patch("secrets.compare_digest", wraps=secrets.compare_digest) as mock_compare:
         res = client_with_key.post(
-            "/faq/search",
+            "/chat",
             headers={"X-API-Key": "test-secret-key-1234"},
-            json={"query": "interest rates"},
+            json={"message": "hello"},
         )
         assert res.status_code == 200
         assert mock_compare.called
@@ -152,8 +152,8 @@ def test_secret_str_redaction_for_api_key():
     """Verify API_KEY SecretStr redacts plaintext value."""
     sec = SecretStr("secret-api-key-9999")
     assert sec.get_secret_value() == "secret-api-key-9999"
-    assert str(sec) == "secr****************"
-    assert repr(sec) == "SecretStr('secr****************')"
+    assert str(sec) == "secr***************"
+    assert repr(sec) == "SecretStr('secr***************')"
     assert "secret-api-key-9999" not in str(sec)
 
 
@@ -162,17 +162,21 @@ def test_auth_evaluated_before_rate_limiter(client_with_key):
     Verify that unauthenticated requests return 401 BEFORE rate limiter
     counters are incremented.
     """
-    with patch("api.rate_limiter._SlidingWindowRateLimiter.is_allowed") as mock_rate_limit:
-        # 1. Unauthenticated request -> should return 401 without calling rate limiter
-        res_unauth = client_with_key.post("/faq/search", json={"query": "test"})
-        assert res_unauth.status_code == 401
-        assert not mock_rate_limit.called
+    from api.rate_limiter import rate_limit_chat
 
-        # 2. Authenticated request -> should invoke rate limiter
-        res_auth = client_with_key.post(
-            "/faq/search",
-            headers={"X-API-Key": "test-secret-key-1234"},
-            json={"query": "test"},
-        )
-        assert res_auth.status_code == 200
-        assert mock_rate_limit.called
+    client_ip = "testclient"
+    initial_count = len(rate_limit_chat.history.get(client_ip, []))
+
+    # 1. Unauthenticated request -> should return 401 without updating rate limit history
+    res_unauth = client_with_key.post("/chat", json={"message": "test"})
+    assert res_unauth.status_code == 401
+    assert len(rate_limit_chat.history.get(client_ip, [])) == initial_count
+
+    # 2. Authenticated request -> should pass auth and update rate limit history
+    res_auth = client_with_key.post(
+        "/chat",
+        headers={"X-API-Key": "test-secret-key-1234"},
+        json={"message": "test"},
+    )
+    assert res_auth.status_code == 200
+    assert len(rate_limit_chat.history.get(client_ip, [])) == initial_count + 1

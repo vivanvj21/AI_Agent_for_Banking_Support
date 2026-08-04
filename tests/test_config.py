@@ -38,6 +38,7 @@ def test_secret_str_redaction():
 def test_environment_profile_switching(monkeypatch):
     """Verify switching ENV environment profiles updates configuration properties."""
     monkeypatch.setenv("ENV", "production")
+    monkeypatch.setenv("API_KEY", "prod-test-key-12345")
     cfg = reload_settings()
     assert cfg.app.env == "production"
     assert cfg.logging.json_logging is True  # Production enables JSON logging by default
@@ -108,6 +109,8 @@ def test_fingerprint_generation_and_drift(monkeypatch):
 
 def test_startup_report_generation(monkeypatch):
     """Verify startup report includes component statuses without revealing raw secrets."""
+    monkeypatch.setenv("ENV", "development")
+    monkeypatch.setenv("PERIMETER_AUTH_OPT_OUT", "true")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-12345")
     cfg = reload_settings()
     report = cfg.get_startup_report()
@@ -117,6 +120,14 @@ def test_startup_report_generation(monkeypatch):
     assert "✓ Config Fingerprint:" in report_text
     assert "✓ LLM Provider: anthropic" in report_text
     assert "sk-ant-test-key-12345" not in report_text  # Raw secret must never be exposed
+
+
+def test_api_routes_import_cleanly():
+    """Verify api.routes module imports cleanly without missing dependency NameErrors."""
+    import importlib
+    api_routes = importlib.import_module("api.routes")
+    assert hasattr(api_routes, "router")
+    assert hasattr(api_routes, "verify_perimeter_api_key")
 
 
 def test_missing_llm_api_key_raises():

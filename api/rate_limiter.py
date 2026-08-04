@@ -16,8 +16,6 @@ For multi-instance, production-grade distributed architectures, these counters s
 be backed by a centralized cache layer (such as Redis or Memcached).
 """
 
-from __future__ import annotations
-
 import logging
 import time
 from collections import deque

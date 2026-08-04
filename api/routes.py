@@ -29,7 +29,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.dependencies import get_graph, require_verified_user
+from api.dependencies import get_graph, require_verified_user, verify_perimeter_api_key
 from api.metrics import record_request
 from api.rate_limiter import rate_limit_chat, rate_limit_verify, rate_limit_default
 from api.schemas import (

@@ -583,7 +583,7 @@ Results are written to `evaluation/results/` as JSON and CSV for historical comp
 
 ### Known Architectural Limitations
 1. **Single-Factor Authentication**: Verification relies on a 4-digit PIN. Enterprise deployment requires multi-factor authentication (MFA).
-2. **No Perimeter API Authentication**: REST endpoints currently rely on network-level protection and session IDs. API-key or gateway token validation is required before production deployment.
+2. **Perimeter API Authentication**: Public REST endpoints are protected by standard header-based API Key (`X-API-Key`) perimeter authentication with constant-time comparison (`secrets.compare_digest`). Enterprise OAuth2/JWT gateway integration is recommended for multi-tenant production setups.
 3. **Single-Node Database & Vector Store**: SQLite and in-memory ChromaDB are single-process by construction. Horizontal scaling requires PostgreSQL (documented in `docs/POSTGRES_MIGRATION.md`) and a clustered vector store.
 4. **Local Subprocess MCP Transport**: MCP tools run over stdio subprocesses (~200ms overhead). Networked MCP services are required for distributed setups.
 
@@ -591,12 +591,11 @@ Results are written to `evaluation/results/` as JSON and CSV for historical comp
 
 ## Current State and Next Steps
 
-The repository has completed **Phase 11 (Production Cleanup & Security Hardening)** with **237/237 tests passing**.
+The repository has completed **Phase 12 (Perimeter API Authentication & Regression Resolution)** with **250/250 tests passing**.
 
 ### Prioritized Next Steps
-1. **Perimeter API Authentication**: Implement API key / OAuth bearer token validation on public REST endpoints to prevent unauthorized un-gated calls.
-2. **Adaptive Authentication & Enterprise IAM (Phase 2)**: Replace single-factor PIN lookup with signed JWTs (Okta / Auth0 / AWS Cognito) and step-up authentication for high-risk actions (card locking, fraud reporting).
-3. **PostgreSQL Migration (Phase 6)**: Execute the PostgreSQL migration plan detailed in [docs/POSTGRES_MIGRATION.md](docs/POSTGRES_MIGRATION.md).
+1. **Adaptive Authentication & Enterprise IAM (Phase 13)**: Replace single-factor PIN lookup with signed JWTs (Okta / Auth0 / AWS Cognito) and step-up authentication for high-risk actions (card locking, fraud reporting).
+2. **PostgreSQL Migration (Phase 14)**: Execute the PostgreSQL migration plan detailed in [docs/POSTGRES_MIGRATION.md](docs/POSTGRES_MIGRATION.md).
 
 ---
 

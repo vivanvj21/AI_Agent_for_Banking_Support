@@ -46,6 +46,7 @@ def test_cors_staging_defaults(monkeypatch):
 def test_cors_production_defaults(monkeypatch):
     """Test that production environment defaults to empty (no access) for security."""
     monkeypatch.setenv("ENV", "production")
+    monkeypatch.setenv("API_KEY", "prod-test-key-12345")
     monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
     origins = get_allowed_origins()
     assert origins == []

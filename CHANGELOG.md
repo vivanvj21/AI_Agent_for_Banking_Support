@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [Phase 12] — 2026-08-04 — Perimeter API Authentication & Regression Resolution
+
+### Added & Completed Steps
+- **Perimeter API Key Authentication**: Added standard header-based API key validation (`X-API-Key`) across `/chat`, `/verify`, `/account/*`, `/fraud/*`, `/faq/search`, and `/mcp/*` endpoints using `secrets.compare_digest` for constant-time comparison.
+- **Fail-Closed Security Configuration**: Enforced fast failure during startup when `API_KEY` is missing in production profile. Development/test modes require explicit `PERIMETER_AUTH_OPT_OUT=true` to run unauthenticated.
+- **Public Route Exemptions**: Exempted `/health`, `/health/live`, `/health/ready`, `/docs`, `/redoc`, and `/openapi.json` from perimeter authentication.
+- **Clean Dependency Typing**: Eliminated `ForwardRef` type annotation stringification issues across dependency injection signatures in `api/dependencies.py` and `api/rate_limiter.py`.
+- **Full Test Suite Restoration**: Restored 100% test pass rate (**250/250 tests passed**).
+
+---
+
 ## [Phase 11] — 2026-07-28 — Production Cleanup & Security Hardening
 
 ### Added & Completed Steps

@@ -9,12 +9,12 @@ it has gone through /verify or through the graph's verify_gate inside
 /chat — there is exactly one place identity gets attached to a session.
 """
 
-from __future__ import annotations
-
 from functools import lru_cache
+import secrets
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, status
 
+from config import settings
 from graph import build_graph
 from tools import memory
 
@@ -74,10 +74,6 @@ def verify_perimeter_api_key(request: Request) -> None:
 
     Exempt paths: /health, /health/live, /health/ready, /docs, /redoc, /openapi.json.
     """
-    import secrets
-    from fastapi import status
-    from config import settings
-
     path = request.url.path
     if path in EXEMPT_PATHS:
         return
