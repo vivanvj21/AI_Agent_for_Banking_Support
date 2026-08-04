@@ -516,3 +516,31 @@ Once enabled, every graph invocation produces a trace in your LangSmith project 
 - Session and turn metadata
 
 Traces are tagged with `node:supervisor`, `node:search_agent`, etc. for easy filtering.
+
+---
+
+## Continuous Integration & Local Quality Checks
+
+Automated testing is configured via GitHub Actions in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
+### CI Workflow Triggers & Execution
+- **Triggers**: Every `push` to any branch, `pull_request` targeting `main`, and manual execution (`workflow_dispatch`).
+- **Concurrency**: In-flight workflow runs for the same branch are automatically cancelled on new commits (`concurrency: cancel-in-progress`).
+- **Environment**: Runs on `ubuntu-latest` with Python 3.12, using isolated non-secret environment variables (`ENV=testing`, `PERIMETER_AUTH_OPT_OUT=true`).
+
+### Running CI Checks Locally
+Before opening a pull request, run the exact same verification commands locally:
+
+```bash
+# 1. Compile Python source files
+python -m compileall -q .
+
+# 2. Run unit and integration tests (250 tests)
+python -m pytest
+
+# 3. Validate CLI and system health initialization
+python cli.py --check-startup
+```
+
+> [!NOTE]
+> **Deployment Note**: GitHub Actions CI validates code compilation, test suite execution, and system health probes. Automated Continuous Deployment (CD) to staging or production clusters is **not yet implemented**.

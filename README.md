@@ -1,6 +1,7 @@
 # AI Agent for Banking Support
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![CI](https://github.com/vivanvj21/AI_Agent_for_Banking_Support/actions/workflows/ci.yml/badge.svg)](https://github.com/vivanvj21/AI_Agent_for_Banking_Support/actions/workflows/ci.yml)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Orchestration-blueviolet?logo=langchain)](https://langchain-ai.github.io/langgraph/)
 [![Claude](https://img.shields.io/badge/Anthropic-Claude%20Sonnet%204.5-orange?logo=anthropic)](https://www.anthropic.com/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-REST%20API-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -586,6 +587,23 @@ Results are written to `evaluation/results/` as JSON and CSV for historical comp
 2. **Perimeter API Authentication**: Public REST endpoints are protected by standard header-based API Key (`X-API-Key`) perimeter authentication with constant-time comparison (`secrets.compare_digest`). Enterprise OAuth2/JWT gateway integration is recommended for multi-tenant production setups.
 3. **Single-Node Database & Vector Store**: SQLite and in-memory ChromaDB are single-process by construction. Horizontal scaling requires PostgreSQL (documented in `docs/POSTGRES_MIGRATION.md`) and a clustered vector store.
 4. **Local Subprocess MCP Transport**: MCP tools run over stdio subprocesses (~200ms overhead). Networked MCP services are required for distributed setups.
+
+## Continuous Integration (CI)
+
+Automated testing and code validation are enforced via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
+
+- **Triggers**: Runs on all pushes (`branches: ["**"]`), pull requests targeting `main`, and manual dispatch (`workflow_dispatch`).
+- **Concurrency**: Automatically cancels outdated in-flight runs on the same branch (`concurrency: cancel-in-progress`).
+- **Environment**: Runs on `ubuntu-latest` with Python 3.12, using non-secret test settings (`ENV=testing`, `PERIMETER_AUTH_OPT_OUT=true`). Zero external LLM calls or cloud production secrets are used in CI runs.
+- **Local Reproduction**: Developers can run the exact same checks locally:
+  ```bash
+  python -m compileall -q .
+  python -m pytest
+  python cli.py --check-startup
+  ```
+
+> [!NOTE]
+> **Automated Testing vs. Deployment (CD)**: GitHub Actions CI automatically validates code compilation, test suite execution, and system health checks. Continuous Deployment (CD) / automated container pushing to staging or production is **not yet implemented**.
 
 ---
 
