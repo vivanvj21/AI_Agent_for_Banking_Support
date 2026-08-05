@@ -3,11 +3,13 @@ langgraph>=1.2.0
 chromadb>=1.5.0
 numpy>=2.0.0
 pytest>=8.0.0
+pytest-asyncio>=0.23.0
 streamlit>=1.38.0
 voyageai>=0.3.0  # optional: only needed if using VoyageEmbeddingProvider in tools/embeddings.py
 mcp>=1.28.0      # optional: only needed for mcp_servers/ — not used by the core LangGraph app
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
+gunicorn>=21.2.0
 pydantic>=2.9.0
 argon2-cffi>=23.1.0  # secure PIN hashing — replaces raw SHA-256
 rank-bm25>=0.2.2     # BM25 sparse retrieval for hybrid RAG
@@ -15,3 +17,23 @@ langsmith>=0.1.0     # optional: LangSmith tracing — set LANGSMITH_TRACING=tru
 ragas>=0.2.0         # optional: RAGAS evaluation — set ANTHROPIC_API_KEY to use
 langchain-anthropic>=0.3.0  # optional: required by RAGAS metrics (LangchainLLMWrapper)
 python-dotenv>=1.0.0 # .env loading for start.py and local dev
+
+# Database & ORM
+sqlalchemy[asyncio]>=2.0.28
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.1
+pgvector>=0.2.5
+
+# Caching & Redis
+redis>=5.0.3
+
+# Security & Auth
+pyjwt[crypto]>=2.8.0
+python-multipart>=0.0.9
+
+# Observability
+prometheus-client>=0.20.0
+opentelemetry-api>=1.23.0
+opentelemetry-sdk>=1.23.0
+opentelemetry-instrumentation-fastapi>=0.44b0

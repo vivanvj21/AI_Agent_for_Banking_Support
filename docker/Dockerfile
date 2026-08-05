@@ -17,6 +17,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
+    libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

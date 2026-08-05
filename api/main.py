@@ -131,6 +131,9 @@ app = FastAPI(
 # To support session cookies and authorization headers securely in bank systems,
 # allow_credentials is set to True. Under the W3C spec, this constraint prevents
 # the use of wildcard '*' origins, which is validated during config loading.
+from api.auth import router as auth_router
+from observability.metrics import prometheus_metrics_middleware, metrics_response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_allowed_origins(),
@@ -138,8 +141,10 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+app.middleware("http")(prometheus_metrics_middleware)
 
 app.include_router(router)
+app.include_router(auth_router)
 app.include_router(health_router)  # /health/live and /health/ready
 app.include_router(mcp_router)  # /mcp/status, /mcp/tools, /mcp/call
 

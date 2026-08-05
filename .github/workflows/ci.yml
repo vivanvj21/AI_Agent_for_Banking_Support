@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 'on':
   push:
@@ -12,13 +12,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-and-validate:
-    name: Build, Test & Health Check
+  lint-and-format:
+    name: Code Formatting & Syntax Check
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black
+
+      - name: Check Formatting (Black)
+        run: black --check .
+
+      - name: Lint Code (Ruff)
+        run: ruff check .
+
+  unit-and-integration-tests:
+    name: Unit & Integration Tests (with Postgres & Redis)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bank_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       ENV: testing
       PERIMETER_AUTH_OPT_OUT: "true"
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/bank_db"
+      REDIS_URL: "redis://localhost:6379/0"
       ANTHROPIC_API_KEY: ""
       VOYAGE_API_KEY: ""
       PYTHONPATH: "."
@@ -46,3 +97,21 @@ jobs:
 
       - name: Verify CLI startup health
         run: python cli.py --check-startup
+
+  security-scan:
+    name: Security & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Security Analysis (Bandit)
+        run: bandit -r api/ database/ redis/ security/ tools/ -ll -ii || true

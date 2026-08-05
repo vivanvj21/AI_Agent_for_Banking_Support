@@ -55,3 +55,6 @@ knowledge_base/chroma_memory/
 
 # Docker Compose local overrides
 docker-compose.override.yml
+
+# Bundles
+*.bundle

@@ -1,132 +1,177 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Autonomous Bank Assistant — Docker Compose
-#
-# Usage:
-#   docker compose up                  # starts streamlit + api
-#   docker compose up streamlit        # only Streamlit UI
-#   docker compose up api              # only FastAPI
-#   docker compose --profile tools up  # starts all services incl. extras
-#
-# One-time setup:
-#   cp .env.example .env
-#   # Edit .env and set ANTHROPIC_API_KEY
-#   docker compose up --build
+# Enterprise Autonomous Bank Assistant — Production Docker Compose
 # ─────────────────────────────────────────────────────────────────────────────
 
 version: "3.9"
 
-# ── Shared env loaded from .env file ─────────────────────────────────────────
 x-common-env: &common-env
+  ENV: ${ENV:-production}
   LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-  ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-5}
-  VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
-  # LangSmith
-  LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
-  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
-  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-bank-assistant}
-  LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
-  # Memory Engine (Phase 6) — optional overrides
-  MEMORY_MAX_TURNS: ${MEMORY_MAX_TURNS:-50}
-  MEMORY_SIM_THRESHOLD: ${MEMORY_SIM_THRESHOLD:-0.35}
-  MEMORY_SUMMARY_THRESHOLD: ${MEMORY_SUMMARY_THRESHOLD:-20}
-  # Logging
+  DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/bank_db}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  API_KEY: ${API_KEY:-}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
-# ── Shared volume mounts ──────────────────────────────────────────────────────
-x-common-volumes: &common-volumes
-  - db_data:/app/db
-  - chroma_faq:/app/knowledge_base/chroma_store
-  - chroma_memory:/app/knowledge_base/chroma_memory
-  - faq_docs:/app/knowledge_base/faq_docs
-  - logs:/app/logs
-
-# ── Shared build context ──────────────────────────────────────────────────────
 x-build: &build
   context: .
   dockerfile: docker/Dockerfile
 
 services:
 
+  # ── PostgreSQL Database + pgvector ─────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: bank-assistant-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-bank_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bank_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis Cache & Distributed Lock Manager ─────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bank-assistant-redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI REST API (Gunicorn + Uvicorn Async Workers) ─────────────────────
+  api:
+    build: *build
+    container_name: bank-assistant-api
+    restart: always
+    environment:
+      <<: *common-env
+    command: >
+      gunicorn -c gunicorn.conf.py api.main:app
+    expose:
+      - "8000"
+    volumes:
+      - logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   # ── Streamlit UI ────────────────────────────────────────────────────────────
   streamlit:
     build: *build
     container_name: bank-assistant-ui
-    restart: unless-stopped
-    ports:
-      - "${STREAMLIT_PORT:-8501}:8501"
+    restart: always
     environment:
       <<: *common-env
-    volumes: *common-volumes
     command: >
       streamlit run app_streamlit.py
       --server.port=8501
       --server.address=0.0.0.0
       --server.headless=true
       --browser.gatherUsageStats=false
+    expose:
+      - "8501"
+    volumes:
+      - logs:/app/logs
     healthcheck:
-      test: ["CMD", "python", "-c",
-             "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 20s
+      timeout: 5s
       start_period: 20s
       retries: 3
     depends_on:
       api:
         condition: service_healthy
 
-  # ── FastAPI REST API ────────────────────────────────────────────────────────
-  api:
-    build: *build
-    container_name: bank-assistant-api
-    restart: unless-stopped
+  # ── Nginx Edge Proxy & Security Layer ──────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: bank-assistant-nginx
+    restart: always
     ports:
-      - "${API_PORT:-8000}:8000"
-    environment:
-      <<: *common-env
-    volumes: *common-volumes
-    command: >
-      python -m uvicorn api.main:app
-      --host 0.0.0.0
-      --port 8000
-      --workers ${API_WORKERS:-1}
-      --log-level ${LOG_LEVEL:-info}
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     healthcheck:
-      test: ["CMD", "python", "-c",
-             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 20s
-      timeout: 8s
-      start_period: 15s
+      test: ["CMD", "nginx", "-t"]
+      interval: 15s
+      timeout: 5s
       retries: 3
+    depends_on:
+      api:
+        condition: service_healthy
+      streamlit:
+        condition: service_healthy
 
-  # ── DB initializer (runs once, then exits) ───────────────────────────────
-  # Ensures SQLite schema + demo data are seeded before other services start.
-  # Remove after first run if you want to avoid the startup delay.
-  db-init:
-    build: *build
-    container_name: bank-assistant-db-init
+  # ── Prometheus Metrics Collector ───────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: bank-assistant-prometheus
+    restart: always
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    expose:
+      - "9090"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── Grafana Metrics Visualization Dashboard ────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: bank-assistant-grafana
+    restart: always
     environment:
-      <<: *common-env
-    volumes: *common-volumes
-    command: >
-      python -c "
-      from db.init_db import ensure_database;
-      from memory.store import ensure_memory_schema;
-      r = ensure_database(seed_demo_data=True);
-      ensure_memory_schema();
-      print('DB init complete:', r)
-      "
-    restart: "no"
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafanadata:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
 
-# ── Named volumes (data persists across docker compose down / up) ─────────────
 volumes:
-  db_data:
+  pgdata:
     driver: local
-  chroma_faq:
-    driver: local
-  chroma_memory:
-    driver: local
-  faq_docs:
+  redisdata:
     driver: local
   logs:
+    driver: local
+  promdata:
+    driver: local
+  grafanadata:
     driver: local

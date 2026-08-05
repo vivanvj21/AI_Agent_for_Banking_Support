@@ -140,12 +140,25 @@ class SecuritySettings:
     api_key: SecretStr = field(default_factory=lambda: SecretStr(""))
     api_key_header_name: str = "X-API-Key"
     require_api_key: bool = True
+    jwt_secret_key: SecretStr = field(default_factory=lambda: SecretStr("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
 
 
 @dataclass
 class DatabaseSettings:
     db_path: Path = field(default_factory=lambda: ROOT_DIR / "db" / "bank.db")
     timeout_ms: int = 5000
+    url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/bank_db"
+    pool_size: int = 20
+    max_overflow: int = 10
+    pool_timeout: int = 30
+    pool_recycle: int = 1800
+
+
+@dataclass
+class RedisSettings:
+    url: str = "redis://localhost:6379/0"
+    max_connections: int = 50
+    socket_timeout: float = 5.0
 
 
 @dataclass
@@ -247,6 +260,7 @@ class AppConfig:
     deployment: DeploymentSettings
     security: SecuritySettings
     database: DatabaseSettings
+    redis: RedisSettings
     logging: LoggingSettings
     llm: LLMSettings
     embedding: EmbeddingSettings
@@ -393,10 +407,14 @@ class AppConfig:
             require_api_key=require_api_key,
         )
 
-        # 4. Database
+        # 4. Database & Redis
         db_path_str = get_val("DB_PATH")
         db_path = Path(db_path_str).resolve() if db_path_str else ROOT_DIR / "db" / "bank.db"
-        db_settings = DatabaseSettings(db_path=db_path)
+        db_url = get_val("DATABASE_URL") or "postgresql+asyncpg://postgres:postgres@localhost:5432/bank_db"
+        db_settings = DatabaseSettings(db_path=db_path, url=db_url)
+
+        redis_url = get_val("REDIS_URL") or "redis://localhost:6379/0"
+        redis_settings = RedisSettings(url=redis_url)
 
         # 5. Logging
         log_level = (get_val("LOG_LEVEL") or "INFO").upper()
@@ -515,6 +533,7 @@ class AppConfig:
             deployment=dep_settings,
             security=sec_settings,
             database=db_settings,
+            redis=redis_settings,
             logging=log_settings,
             llm=llm_settings,
             embedding=emb_settings,
