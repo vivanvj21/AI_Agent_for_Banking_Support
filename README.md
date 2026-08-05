@@ -56,6 +56,7 @@ The system accepts natural language queries from customers and routes them intel
 | 9 | MCP Platform Integration | ✅ Complete |
 | 10 | Documentation & Polish | ✅ Complete |
 | 11 | Production Cleanup & Security Hardening | ✅ Complete |
+| 12 | Enterprise Production System (Postgres, Redis, Gunicorn, Nginx, Prometheus, Grafana, JWT, Scripts) | ✅ Complete |
 
 ---
 
@@ -189,14 +190,17 @@ flowchart LR
 | Orchestration | LangGraph | State-machine multi-agent graph |
 | LLM — Primary | Anthropic Claude Sonnet 4.5 | Agent reasoning & response synthesis |
 | LLM — Classifier | Anthropic Claude Haiku 4.5 | Fast, cheap intent classification |
-| Vector Store | ChromaDB | Dense retrieval for RAG and Memory |
+| Vector Store | ChromaDB & pgvector | Dense retrieval for RAG and Memory |
 | Sparse Retrieval | BM25 (rank-bm25) | Lexical FAQ search |
 | Embeddings | VoyageAI (optional) | High-quality text embeddings |
-| Structured Storage | SQLite | Accounts, sessions, memory facts |
+| Primary Database | PostgreSQL (SQLAlchemy ORM + Alembic) | Enterprise relational storage & migrations |
+| Caching & Locks | Redis Cluster | Distributed cache, Redlock locks, sessions, rate limiting |
+| Application Server | Gunicorn + Uvicorn Async Workers | Production ASGI server with worker recycling |
+| Edge Reverse Proxy | Nginx | SSL termination, security headers, rate limit zones |
 | REST API | FastAPI | Production HTTP interface |
 | Web UI | Streamlit | Browser-based chat interface |
 | External Tools | MCP (Model Context Protocol) | Subprocess tool servers |
-| Observability | LangSmith | Tracing, span hierarchy |
+| Observability & Metrics | Prometheus & Grafana & LangSmith | System metrics, tracing, span hierarchy |
 | Evaluation | RAGAS | LLM quality metrics |
 | Containerization | Docker + docker-compose | Multi-stage production builds |
 
