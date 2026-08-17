@@ -36,16 +36,16 @@ class TokenResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest) -> TokenResponse:
     res = verify_identity(user_id=req.user_id, pin=req.pin)
-    if res.get("status") != "success":
+    if not res.get("verified"):
         log_audit_event(
             event_type="auth_failure",
             user_id=req.user_id,
             status="failure",
-            details={"reason": res.get("message", "Invalid credentials")},
+            details={"reason": res.get("error", "Invalid credentials")},
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=res.get("message", "Invalid credentials or account locked"),
+            detail=res.get("error", "Invalid credentials or account locked"),
         )
 
     claims = {"sub": req.user_id, "role": UserRole.CUSTOMER.value}
