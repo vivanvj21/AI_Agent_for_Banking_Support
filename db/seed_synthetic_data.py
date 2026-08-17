@@ -73,7 +73,7 @@ def seed_users(conn, n=8):
     conn.executemany(
         "INSERT INTO users (user_id, first_name, last_name, email, pin_hash, created_at) "
         "VALUES (?,?,?,?,?,?)",
-        users
+        users,
     )
     return [u[0] for u in users]
 

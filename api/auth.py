@@ -4,15 +4,13 @@ Authentication API Router handling JWT logins, token refreshes, and claims verif
 
 from __future__ import annotations
 
-from typing import Dict, Any
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
-
+from observability.audit import log_audit_event
 from security.jwt import create_access_token, create_refresh_token, decode_token
 from security.rbac import UserRole
 from tools.account_tools import verify_identity
-from observability.audit import log_audit_event
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -65,11 +63,15 @@ def login(req: LoginRequest) -> TokenResponse:
 def refresh(req: RefreshRequest) -> TokenResponse:
     payload = decode_token(req.refresh_token)
     if payload.get("type") != "refresh":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token"
+        )
 
     user_id = payload.get("sub")
     if not user_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token subject")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token subject"
+        )
 
     claims = {"sub": user_id, "role": payload.get("role", UserRole.CUSTOMER.value)}
     access_token = create_access_token(claims)

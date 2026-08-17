@@ -10,8 +10,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Callable, TypeVar
+from typing import TypeVar
 
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.ext.asyncio import (
@@ -27,13 +28,16 @@ LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
 # Primary Database URL resolution
 def get_database_url() -> str:
     """Resolve the PostgreSQL database URL, defaulting to asyncpg driver."""
     url = os.environ.get("DATABASE_URL") or settings.database.url
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-    elif url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
+    elif url.startswith("postgresql://") and not url.startswith(
+        "postgresql+asyncpg://"
+    ):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url
 
@@ -48,7 +52,7 @@ def get_async_engine() -> AsyncEngine:
     if _engine is None:
         db_url = get_database_url()
         is_sqlite = "sqlite" in db_url
-        
+
         connect_args = {}
         if is_sqlite:
             connect_args["check_same_thread"] = False
@@ -67,7 +71,10 @@ def get_async_engine() -> AsyncEngine:
                 pool_pre_ping=True,
                 echo=settings.logging.verbose,
             )
-        LOGGER.info("async_db_engine_initialized", extra={"db_url_redacted": db_url.split("@")[-1]})
+        LOGGER.info(
+            "async_db_engine_initialized",
+            extra={"db_url_redacted": db_url.split("@")[-1]},
+        )
     return _engine
 
 
@@ -117,11 +124,19 @@ async def execute_with_retry(
                 return await res
             return res
         except (OperationalError, DBAPIError) as exc:
-            is_deadlock = "deadlock" in str(exc).lower() or "lock timeout" in str(exc).lower()
+            is_deadlock = (
+                "deadlock" in str(exc).lower() or "lock timeout" in str(exc).lower()
+            )
             if attempt == max_retries or not is_deadlock:
-                LOGGER.error("db_retry_exhausted_or_fatal", extra={"attempt": attempt, "error": str(exc)})
+                LOGGER.error(
+                    "db_retry_exhausted_or_fatal",
+                    extra={"attempt": attempt, "error": str(exc)},
+                )
                 raise
-            LOGGER.warning("db_transient_error_retrying", extra={"attempt": attempt, "delay": delay, "error": str(exc)})
+            LOGGER.warning(
+                "db_transient_error_retrying",
+                extra={"attempt": attempt, "delay": delay, "error": str(exc)},
+            )
             await asyncio.sleep(delay)
             delay *= 2
     raise RuntimeError("Unexpected end of retry loop")

@@ -6,16 +6,15 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import (
-    AppConfig,
     ConfigurationError,
     MissingAPIKeyError,
     SecretStr,
-    get_llm_config,
     reload_settings,
     require_llm_config,
     settings,
@@ -41,7 +40,9 @@ def test_environment_profile_switching(monkeypatch):
     monkeypatch.setenv("API_KEY", "prod-test-key-12345")
     cfg = reload_settings()
     assert cfg.app.env == "production"
-    assert cfg.logging.json_logging is True  # Production enables JSON logging by default
+    assert (
+        cfg.logging.json_logging is True
+    )  # Production enables JSON logging by default
 
     monkeypatch.setenv("ENV", "development")
     cfg_dev = reload_settings()
@@ -77,7 +78,9 @@ def test_invalid_mcp_timeout_validation(monkeypatch):
     monkeypatch.setenv("MCP_DEFAULT_TIMEOUT", "-5.0")
     with pytest.raises(ConfigurationError) as exc_info:
         reload_settings()
-    assert "MCP timeouts and retry delays must be positive numbers" in str(exc_info.value)
+    assert "MCP timeouts and retry delays must be positive numbers" in str(
+        exc_info.value
+    )
 
 
 def test_cors_wildcard_rejection(monkeypatch):
@@ -119,12 +122,15 @@ def test_startup_report_generation(monkeypatch):
     assert "✓ Environment Profile: DEVELOPMENT" in report_text
     assert "✓ Config Fingerprint:" in report_text
     assert "✓ LLM Provider: anthropic" in report_text
-    assert "sk-ant-test-key-12345" not in report_text  # Raw secret must never be exposed
+    assert (
+        "sk-ant-test-key-12345" not in report_text
+    )  # Raw secret must never be exposed
 
 
 def test_api_routes_import_cleanly():
     """Verify api.routes module imports cleanly without missing dependency NameErrors."""
     import importlib
+
     api_routes = importlib.import_module("api.routes")
     assert hasattr(api_routes, "router")
     assert hasattr(api_routes, "verify_perimeter_api_key")

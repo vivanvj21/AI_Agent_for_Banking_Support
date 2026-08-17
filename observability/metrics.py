@@ -5,26 +5,48 @@ Prometheus Metrics Collector & Instrumentation for FastAPI & System Monitoring.
 from __future__ import annotations
 
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
+
 try:
-    from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        Counter,
+        Gauge,
+        Histogram,
+        generate_latest,
+    )
+
     _PROMETHEUS_AVAILABLE = True
 except ImportError:
     _PROMETHEUS_AVAILABLE = False
     CONTENT_TYPE_LATEST = "text/plain"
 
     class _DummyMetric:
-        def __init__(self, *args, **kwargs): pass
-        def labels(self, *args, **kwargs): return self
-        def inc(self, *args, **kwargs): pass
-        def dec(self, *args, **kwargs): pass
-        def observe(self, *args, **kwargs): pass
-        def set(self, *args, **kwargs): pass
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def labels(self, *args, **kwargs):
+            return self
+
+        def inc(self, *args, **kwargs):
+            pass
+
+        def dec(self, *args, **kwargs):
+            pass
+
+        def observe(self, *args, **kwargs):
+            pass
+
+        def set(self, *args, **kwargs):
+            pass
 
     Counter = Gauge = Histogram = _DummyMetric
-    def generate_latest(): return b""
+
+    def generate_latest():
+        return b""
+
 
 # HTTP Request Metrics
 REQUEST_COUNT = Counter(
@@ -76,7 +98,9 @@ LLM_TOKEN_USAGE = Counter(
 )
 
 
-async def prometheus_metrics_middleware(request: Request, call_next: Callable) -> Response:
+async def prometheus_metrics_middleware(
+    request: Request, call_next: Callable
+) -> Response:
     """FastAPI Middleware collecting HTTP request metrics."""
     endpoint = request.url.path
     method = request.method
@@ -87,7 +111,9 @@ async def prometheus_metrics_middleware(request: Request, call_next: Callable) -
     try:
         response: Response = await call_next(request)
         status_code = str(response.status_code)
-        REQUEST_COUNT.labels(method=method, endpoint=endpoint, status_code=status_code).inc()
+        REQUEST_COUNT.labels(
+            method=method, endpoint=endpoint, status_code=status_code
+        ).inc()
         return response
     finally:
         latency = time.perf_counter() - start_time

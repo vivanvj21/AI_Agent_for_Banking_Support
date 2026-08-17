@@ -3,26 +3,35 @@ Unit & Integration Tests for Async Database Engine, Models, and Repositories.
 """
 
 import pytest
+
 try:
+    import aiosqlite  # noqa: F401
     import pytest_asyncio
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-    import aiosqlite
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
+
     _ASYNC_TEST_AVAILABLE = True
 except ImportError:
     _ASYNC_TEST_AVAILABLE = False
     pytest_asyncio = None
 
-pytestmark = pytest.mark.skipif(not _ASYNC_TEST_AVAILABLE, reason="asyncio database test dependencies (pytest_asyncio, aiosqlite) not installed locally")
+pytestmark = pytest.mark.skipif(
+    not _ASYNC_TEST_AVAILABLE,
+    reason="asyncio database test dependencies (pytest_asyncio, aiosqlite) not installed locally",
+)
 
 from datetime import datetime, timezone
-from database.models import Base, UserModel, AccountModel, CardModel, TransactionModel
-from database.repositories.user_repository import UserRepository
+
+from database.models import AccountModel, Base, CardModel, UserModel
 from database.repositories.account_repository import AccountRepository
 from database.repositories.card_repository import CardRepository
-from database.repositories.transaction_repository import TransactionRepository
-
+from database.repositories.user_repository import UserRepository
 
 fixture_decorator = pytest_asyncio.fixture if _ASYNC_TEST_AVAILABLE else pytest.fixture
+
 
 @fixture_decorator
 async def async_session():
@@ -30,7 +39,9 @@ async def async_session():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
     async with session_factory() as session:
         yield session
 
@@ -59,12 +70,16 @@ async def test_user_repository_crud_and_lockout(async_session):
     assert fetched.email == "test.user@bank.com"
 
     # Test lockout after failed attempts
-    updated = await repo.increment_failed_attempts("U9999", max_attempts=3, lockout_minutes=15)
+    updated = await repo.increment_failed_attempts(
+        "U9999", max_attempts=3, lockout_minutes=15
+    )
     assert updated.failed_attempts == 1
     assert updated.locked_until is None
 
     await repo.increment_failed_attempts("U9999", max_attempts=3, lockout_minutes=15)
-    updated = await repo.increment_failed_attempts("U9999", max_attempts=3, lockout_minutes=15)
+    updated = await repo.increment_failed_attempts(
+        "U9999", max_attempts=3, lockout_minutes=15
+    )
     assert updated.failed_attempts == 3
     assert updated.locked_until is not None
 

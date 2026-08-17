@@ -7,8 +7,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from redis.connection import get_redis_client
 
@@ -17,11 +17,12 @@ LOGGER = logging.getLogger(__name__)
 
 class DistributedLockError(Exception):
     """Raised when lock acquisition fails or timed out."""
-    pass
 
 
 class DistributedLock:
-    def __init__(self, name: str, timeout: float = 10.0, retry_delay: float = 0.1) -> None:
+    def __init__(
+        self, name: str, timeout: float = 10.0, retry_delay: float = 0.1
+    ) -> None:
         self.name = f"lock:{name}"
         self.timeout = timeout
         self.retry_delay = retry_delay
@@ -36,13 +37,16 @@ class DistributedLock:
             # Atomic SET key token NX PX ttl_ms
             ok = await client.set(self.name, self.token, nx=True, px=ttl_ms)
             if ok:
-                LOGGER.debug("redis_lock_acquired", extra={"lock": self.name, "token": self.token})
+                LOGGER.debug(
+                    "redis_lock_acquired",
+                    extra={"lock": self.name, "token": self.token},
+                )
                 return True
-            
+
             elapsed = asyncio.get_event_loop().time() - start
             if elapsed >= wait_timeout:
                 return False
-            
+
             await asyncio.sleep(self.retry_delay)
 
     async def release(self) -> bool:
@@ -61,16 +65,23 @@ class DistributedLock:
                 LOGGER.debug("redis_lock_released", extra={"lock": self.name})
                 return True
         except Exception as exc:
-            LOGGER.error("redis_lock_release_failed", extra={"lock": self.name, "error": str(exc)})
+            LOGGER.error(
+                "redis_lock_release_failed",
+                extra={"lock": self.name, "error": str(exc)},
+            )
         return False
 
 
 @asynccontextmanager
-async def distributed_lock(name: str, timeout: float = 10.0, wait_timeout: float = 5.0) -> AsyncGenerator[None, None]:
+async def distributed_lock(
+    name: str, timeout: float = 10.0, wait_timeout: float = 5.0
+) -> AsyncGenerator[None, None]:
     lock = DistributedLock(name=name, timeout=timeout)
     acquired = await lock.acquire(wait_timeout=wait_timeout)
     if not acquired:
-        raise DistributedLockError(f"Could not acquire lock '{name}' within {wait_timeout}s")
+        raise DistributedLockError(
+            f"Could not acquire lock '{name}' within {wait_timeout}s"
+        )
     try:
         yield
     finally:

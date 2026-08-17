@@ -18,7 +18,6 @@ OpenAI/Cohere provider) for anything beyond local development.
 
 import hashlib
 import importlib.util
-import os
 import sys
 from abc import ABC, abstractmethod
 
@@ -58,6 +57,7 @@ class VoyageEmbeddingProvider(EmbeddingProvider):
                 "voyageai package not installed. Run: pip install voyageai"
             )
         import voyageai
+
         from config import settings
 
         api_key = settings.embedding.voyage_api_key.get_secret_value()
@@ -129,6 +129,7 @@ def get_default_provider() -> EmbeddingProvider:
     otherwise falls back to the local provider with a clear stderr warning.
     """
     from config import settings
+
     if settings.embedding.voyage_api_key.get_secret_value():
         try:
             return VoyageEmbeddingProvider()

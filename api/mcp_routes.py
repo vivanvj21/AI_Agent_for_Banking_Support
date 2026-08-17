@@ -17,7 +17,9 @@ from api.dependencies import verify_perimeter_api_key
 
 LOGGER = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/mcp", tags=["mcp"], dependencies=[Depends(verify_perimeter_api_key)])
+router = APIRouter(
+    prefix="/mcp", tags=["mcp"], dependencies=[Depends(verify_perimeter_api_key)]
+)
 
 
 class MCPToolCallRequest(BaseModel):

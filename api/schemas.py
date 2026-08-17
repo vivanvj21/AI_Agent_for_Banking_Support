@@ -32,8 +32,7 @@ class ChatRequest(BaseModel):
     )
     channel: str = Field("api", description="Channel label stored on the session row.")
     auth: AuthInput | None = Field(
-        None,
-        description="Structured authentication credentials if requested."
+        None, description="Structured authentication credentials if requested."
     )
 
 

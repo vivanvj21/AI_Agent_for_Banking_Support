@@ -1,11 +1,10 @@
 import sys
 from pathlib import Path
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agents.state import AgentState
-from agents.verification import try_verify, extract_credentials
+from agents.verification import extract_credentials, try_verify
 from graph import verify_gate_node
 
 
@@ -80,4 +79,7 @@ def test_verify_gate_node_failure():
     assert new_state["verified"] is False
     assert new_state["auth_pin"] is None  # Zeroed out!
     assert new_state["retry_count"] == 1
-    assert any(term in new_state["reply"].lower() for term in ("records", "match", "error", "verify", "pin"))
+    assert any(
+        term in new_state["reply"].lower()
+        for term in ("records", "match", "error", "verify", "pin")
+    )

@@ -7,18 +7,18 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 LOGGER = logging.getLogger("security.audit")
 
 
 def log_audit_event(
     event_type: str,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    ip_address: Optional[str] = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    ip_address: str | None = None,
     status: str = "success",
-    details: Optional[Dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
 ) -> None:
     """Record a structured JSON security audit log event."""
     audit_record = {

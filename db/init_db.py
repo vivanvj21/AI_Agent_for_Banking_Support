@@ -54,7 +54,9 @@ def migrate_money_columns_if_needed(conn: sqlite3.Connection) -> bool:
     cursor.execute("PRAGMA table_info(transactions)")
     txn_cols = {row[1]: row[2] for row in cursor.fetchall()}
 
-    needs_account_migration = "balance" in accounts_cols and "balance_paise" not in accounts_cols
+    needs_account_migration = (
+        "balance" in accounts_cols and "balance_paise" not in accounts_cols
+    )
     needs_txn_migration = "amount" in txn_cols and "amount_paise" not in txn_cols
 
     if not needs_account_migration and not needs_txn_migration:
@@ -64,7 +66,9 @@ def migrate_money_columns_if_needed(conn: sqlite3.Connection) -> bool:
 
     # Audit for NULL or corrupt legacy values before migration
     if needs_account_migration:
-        null_accs = conn.execute("SELECT account_id, balance FROM accounts WHERE balance IS NULL").fetchall()
+        null_accs = conn.execute(
+            "SELECT account_id, balance FROM accounts WHERE balance IS NULL"
+        ).fetchall()
         for acc_id, orig_val in null_accs:
             LOGGER.warning(
                 "legacy_money_data_corruption_normalized",
@@ -79,7 +83,9 @@ def migrate_money_columns_if_needed(conn: sqlite3.Connection) -> bool:
             )
 
     if needs_txn_migration:
-        null_txns = conn.execute("SELECT transaction_id, amount FROM transactions WHERE amount IS NULL").fetchall()
+        null_txns = conn.execute(
+            "SELECT transaction_id, amount FROM transactions WHERE amount IS NULL"
+        ).fetchall()
         for txn_id, orig_val in null_txns:
             LOGGER.warning(
                 "legacy_money_data_corruption_normalized",
@@ -105,8 +111,7 @@ def migrate_money_columns_if_needed(conn: sqlite3.Connection) -> bool:
         conn.execute("BEGIN IMMEDIATE TRANSACTION")
 
         if needs_account_migration:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE accounts_new (
                     account_id    TEXT PRIMARY KEY,
                     user_id       TEXT NOT NULL,
@@ -116,25 +121,23 @@ def migrate_money_columns_if_needed(conn: sqlite3.Connection) -> bool:
                     is_active     INTEGER NOT NULL DEFAULT 1,
                     FOREIGN KEY (user_id) REFERENCES users(user_id)
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 INSERT INTO accounts_new (account_id, user_id, account_type, balance_paise, currency, is_active)
                 SELECT account_id, user_id, account_type,
                        CAST(ROUND(COALESCE(balance, 0) * 100) AS INTEGER),
                        COALESCE(currency, 'INR'), is_active
                 FROM accounts
-                """
-            )
+                """)
             conn.execute("DROP TABLE accounts")
             conn.execute("ALTER TABLE accounts_new RENAME TO accounts")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)"
+            )
             LOGGER.info("migrated_accounts_table_to_balance_paise")
 
         if needs_txn_migration:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE transactions_new (
                     transaction_id TEXT PRIMARY KEY,
                     account_id     TEXT NOT NULL,
@@ -145,34 +148,40 @@ def migrate_money_columns_if_needed(conn: sqlite3.Connection) -> bool:
                     flagged_fraud  INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY (account_id) REFERENCES accounts(account_id)
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 INSERT INTO transactions_new (transaction_id, account_id, txn_type, amount_paise, merchant, timestamp, flagged_fraud)
                 SELECT transaction_id, account_id, txn_type,
                        CAST(ROUND(COALESCE(amount, 0) * 100) AS INTEGER),
                        merchant, timestamp, flagged_fraud
                 FROM transactions
-                """
-            )
+                """)
             conn.execute("DROP TABLE transactions")
             conn.execute("ALTER TABLE transactions_new RENAME TO transactions")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp)"
+            )
             LOGGER.info("migrated_transactions_table_to_amount_paise")
 
         # Recreate captured triggers
         for trig_name, trig_table, trig_sql in triggers_to_recreate:
             if trig_sql:
                 conn.execute(trig_sql)
-                LOGGER.info("recreated_trigger_after_migration", extra={"trigger": trig_name, "table": trig_table})
+                LOGGER.info(
+                    "recreated_trigger_after_migration",
+                    extra={"trigger": trig_name, "table": trig_table},
+                )
 
         # Check foreign key integrity BEFORE committing to disk
         conn.execute("PRAGMA foreign_keys = ON")
         fk_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
         if fk_errors:
-            raise RuntimeError(f"Foreign key violations detected prior to commit: {fk_errors}")
+            raise RuntimeError(
+                f"Foreign key violations detected prior to commit: {fk_errors}"
+            )
 
         conn.commit()
         return True
@@ -194,7 +203,9 @@ def create_schema_if_needed(conn: sqlite3.Connection) -> bool:
     cursor.execute("PRAGMA table_info(users)")
     columns = {row[1] for row in cursor.fetchall()}
     if "failed_attempts" not in columns:
-        conn.execute("ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0")
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0"
+        )
         LOGGER.info("migration_added_failed_attempts_column")
     if "locked_until" not in columns:
         conn.execute("ALTER TABLE users ADD COLUMN locked_until TEXT DEFAULT NULL")

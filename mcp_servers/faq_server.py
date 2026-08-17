@@ -15,7 +15,7 @@ server end-to-end.
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Tuple, List
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -28,9 +28,9 @@ mcp = FastMCP("bank-faq-server")
 
 # Simple in-memory rate limiter: fixed window counter
 # Structure: { (user_id, tool_name): [timestamp1, timestamp2, ...] }
-_REQUEST_HISTORY: Dict[Tuple[str, str], List[float]] = {}
+_REQUEST_HISTORY: dict[tuple[str, str], list[float]] = {}
 _RATE_LIMIT_WINDOW_SECONDS = 60  # 1 minute
-_RATE_LIMIT_MAX_REQUESTS = 10    # max requests per window
+_RATE_LIMIT_MAX_REQUESTS = 10  # max requests per window
 
 
 def _validate_user_id(user_id: str) -> bool:
@@ -40,7 +40,7 @@ def _validate_user_id(user_id: str) -> bool:
     if len(user_id) > 32:
         return False
     # Allow alphanumeric, underscore, hyphen
-    return all(c.isalnum() or c in ('_', '-') for c in user_id)
+    return all(c.isalnum() or c in ("_", "-") for c in user_id)
 
 
 def _validate_source(source: str | None) -> bool:
@@ -80,37 +80,46 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
     and security logging.
     """
     # Extract parameters we care about for validation and logging
-    user_id = kwargs.get('user_id')
-    source = kwargs.get('source')
-    k = kwargs.get('k')
+    user_id = kwargs.get("user_id")
+    source = kwargs.get("source")
+    k = kwargs.get("k")
 
     # Input validation
     if not _validate_user_id(user_id):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "reason": "invalid_user_id"}
+            extra={"tool": tool_name, "user_id": user_id, "reason": "invalid_user_id"},
         )
         return {"error": "Invalid request."}
 
     if not _validate_source(source):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "source": source, "reason": "invalid_source"}
+            extra={
+                "tool": tool_name,
+                "user_id": user_id,
+                "source": source,
+                "reason": "invalid_source",
+            },
         )
         return {"error": "Invalid request."}
 
     if k is not None and not _validate_k(k):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "k": k, "reason": "invalid_k"}
+            extra={
+                "tool": tool_name,
+                "user_id": user_id,
+                "k": k,
+                "reason": "invalid_k",
+            },
         )
         return {"error": "Invalid request."}
 
     # Rate limiting
     if _is_rate_limited(user_id, tool_name):
         LOGGER.warning(
-            "mcp_rate_limit_exceeded",
-            extra={"tool": tool_name, "user_id": user_id}
+            "mcp_rate_limit_exceeded", extra={"tool": tool_name, "user_id": user_id}
         )
         return {"error": "Too many requests. Please try again later."}
 
@@ -126,18 +135,13 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
                 "user_id": user_id,
                 "source": source,
                 "k": k,
-                "error": result.get("error")
-            }
+                "error": result.get("error"),
+            },
         )
     else:
         LOGGER.info(
             "mcp_tool_success",
-            extra={
-                "tool": tool_name,
-                "user_id": user_id,
-                "source": source,
-                "k": k
-            }
+            extra={"tool": tool_name, "user_id": user_id, "source": source, "k": k},
         )
 
     return result
@@ -149,9 +153,7 @@ def search_faq(query: str, k: int = 3, source: str | None = None) -> dict:
     Semantic search over the bank's FAQ/policy knowledge base.
     Returns top-k chunks with their source doc name.
     """
-    return secure_mcp_call(
-        "search_faq", _search_faq, query=query, k=k, source=source
-    )
+    return secure_mcp_call("search_faq", _search_faq, query=query, k=k, source=source)
 
 
 if __name__ == "__main__":

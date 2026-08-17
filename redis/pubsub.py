@@ -7,7 +7,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Callable, Dict
+from collections.abc import Callable
+from typing import Any
 
 from redis.connection import get_redis_client
 
@@ -21,18 +22,25 @@ class EventBus:
     def _channel(self, topic: str) -> str:
         return f"{self.prefix}{topic}"
 
-    async def publish(self, topic: str, payload: Dict[str, Any]) -> int:
+    async def publish(self, topic: str, payload: dict[str, Any]) -> int:
         try:
             client = await get_redis_client()
             message = json.dumps(payload)
             subscribers = await client.publish(self._channel(topic), message)
-            LOGGER.debug("redis_event_published", extra={"topic": topic, "subscribers": subscribers})
+            LOGGER.debug(
+                "redis_event_published",
+                extra={"topic": topic, "subscribers": subscribers},
+            )
             return subscribers
         except Exception as exc:
-            LOGGER.error("redis_event_publish_failed", extra={"topic": topic, "error": str(exc)})
+            LOGGER.error(
+                "redis_event_publish_failed", extra={"topic": topic, "error": str(exc)}
+            )
             return 0
 
-    async def subscribe(self, topic: str, handler: Callable[[Dict[str, Any]], Any]) -> None:
+    async def subscribe(
+        self, topic: str, handler: Callable[[dict[str, Any]], Any]
+    ) -> None:
         client = await get_redis_client()
         pubsub = client.pubsub()
         channel = self._channel(topic)
@@ -47,7 +55,10 @@ class EventBus:
                     if asyncio.iscoroutine(res):
                         await res
                 except Exception as exc:
-                    LOGGER.error("redis_event_handler_failed", extra={"topic": topic, "error": str(exc)})
+                    LOGGER.error(
+                        "redis_event_handler_failed",
+                        extra={"topic": topic, "error": str(exc)},
+                    )
 
 
 event_bus = EventBus()

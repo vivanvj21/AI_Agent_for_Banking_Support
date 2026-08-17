@@ -1,11 +1,11 @@
-import os
 import sys
 from pathlib import Path
+
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config import get_allowed_origins, ConfigurationError
+from config import ConfigurationError, get_allowed_origins
 
 
 def test_cors_dev_defaults(monkeypatch):
@@ -26,7 +26,10 @@ def test_cors_dev_defaults(monkeypatch):
 
 def test_cors_custom_origins(monkeypatch):
     """Test that custom comma-separated ALLOWED_ORIGINS are parsed correctly."""
-    monkeypatch.setenv("ALLOWED_ORIGINS", "https://bank.example.com , http://localhost:3000,https://internal.bank.com")
+    monkeypatch.setenv(
+        "ALLOWED_ORIGINS",
+        "https://bank.example.com , http://localhost:3000,https://internal.bank.com",
+    )
     origins = get_allowed_origins()
     assert origins == [
         "https://bank.example.com",

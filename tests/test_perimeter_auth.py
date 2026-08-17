@@ -23,7 +23,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from config import AppConfig, ConfigurationError, SecretStr, settings
+from config import AppConfig, ConfigurationError, SecretStr
 
 
 @pytest.fixture
@@ -42,7 +42,11 @@ def test_public_routes_exempt(client_with_key):
     """Verify health and docs routes do not require X-API-Key."""
     for path in ["/health", "/health/live", "/health/ready", "/docs", "/openapi.json"]:
         res = client_with_key.get(path)
-        assert res.status_code in (200, 307, 503), f"Expected public access for {path}, got {res.status_code}"
+        assert res.status_code in (
+            200,
+            307,
+            503,
+        ), f"Expected public access for {path}, got {res.status_code}"
 
 
 def test_protected_route_without_key(client_with_key):
@@ -89,7 +93,9 @@ def test_mcp_routes_protected_by_perimeter_auth(client_with_key):
     res_unauth = client_with_key.get("/mcp/status")
     assert res_unauth.status_code == 401
 
-    res_auth = client_with_key.get("/mcp/status", headers={"X-API-Key": "test-secret-key-1234"})
+    res_auth = client_with_key.get(
+        "/mcp/status", headers={"X-API-Key": "test-secret-key-1234"}
+    )
     assert res_auth.status_code == 200
 
 

@@ -40,9 +40,13 @@ class RateLimiter:
     def __init__(self, env_var: str, default_times: int, default_seconds: int) -> None:
         self.env_var = env_var
         # Resolve limit parameters from centralized configuration
-        self.times, self.seconds = get_rate_limit(env_var, default_times, default_seconds)
+        self.times, self.seconds = get_rate_limit(
+            env_var, default_times, default_seconds
+        )
         self.history: dict[str, deque[float]] = {}
-        self._lock = Lock()  # Prevents race conditions and state corruption across ASGI threads
+        self._lock = (
+            Lock()
+        )  # Prevents race conditions and state corruption across ASGI threads
 
     def __call__(self, request: Request) -> None:
         """Evaluate the rate limit for the incoming request's client IP.
@@ -100,5 +104,9 @@ class RateLimiter:
 #  - Verify: 5 requests / 60 seconds (protects authentication brute-force)
 #  - Default: 15 requests / 60 seconds (general endpoints)
 rate_limit_chat = RateLimiter("RATE_LIMIT_CHAT", default_times=10, default_seconds=60)
-rate_limit_verify = RateLimiter("RATE_LIMIT_VERIFY", default_times=5, default_seconds=60)
-rate_limit_default = RateLimiter("RATE_LIMIT_DEFAULT", default_times=15, default_seconds=60)
+rate_limit_verify = RateLimiter(
+    "RATE_LIMIT_VERIFY", default_times=5, default_seconds=60
+)
+rate_limit_default = RateLimiter(
+    "RATE_LIMIT_DEFAULT", default_times=15, default_seconds=60
+)

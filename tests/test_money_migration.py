@@ -13,12 +13,10 @@ Covers:
 
 from __future__ import annotations
 
-from decimal import Decimal
-import os
-from pathlib import Path
 import sqlite3
 import sys
-import pytest
+from decimal import Decimal
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -86,8 +84,7 @@ def test_legacy_database_migration(tmp_path):
     conn.execute("PRAGMA foreign_keys = ON")
 
     # Create legacy schema with REAL columns
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE users (
             user_id TEXT PRIMARY KEY,
             first_name TEXT NOT NULL,
@@ -146,8 +143,7 @@ def test_legacy_database_migration(tmp_path):
 
         CREATE INDEX idx_accounts_user_id ON accounts(user_id);
         CREATE INDEX idx_transactions_account_id ON transactions(account_id);
-        """
-    )
+        """)
 
     # Insert legacy records with floating point balance and amounts (including NULL legacy test row)
     conn.execute(
@@ -178,8 +174,12 @@ def test_legacy_database_migration(tmp_path):
     assert migrated is True
 
     # 1. Verify row counts and IDs preserved
-    acc_rows = conn.execute("SELECT account_id, balance_paise FROM accounts ORDER BY account_id").fetchall()
-    txn_rows = conn.execute("SELECT transaction_id, amount_paise FROM transactions ORDER BY transaction_id").fetchall()
+    acc_rows = conn.execute(
+        "SELECT account_id, balance_paise FROM accounts ORDER BY account_id"
+    ).fetchall()
+    txn_rows = conn.execute(
+        "SELECT transaction_id, amount_paise FROM transactions ORDER BY transaction_id"
+    ).fetchall()
 
     assert len(acc_rows) == 2
     assert len(txn_rows) == 2
@@ -195,7 +195,9 @@ def test_legacy_database_migration(tmp_path):
     fk_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
     assert len(fk_errors) == 0
 
-    idx_rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'").fetchall()
+    idx_rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'index'"
+    ).fetchall()
     idx_names = {r[0] for r in idx_rows}
     assert "idx_accounts_user_id" in idx_names
     assert "idx_transactions_account_id" in idx_names
@@ -221,8 +223,7 @@ def test_trigger_preservation_and_auditable_null_warning(tmp_path, caplog):
     conn = sqlite3.connect(str(db_file))
     conn.execute("PRAGMA foreign_keys = ON")
 
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE users (
             user_id TEXT PRIMARY KEY,
             first_name TEXT NOT NULL,
@@ -246,10 +247,11 @@ def test_trigger_preservation_and_auditable_null_warning(tmp_path, caplog):
         BEGIN
             SELECT 1;
         END;
-        """
-    )
+        """)
 
-    conn.execute("INSERT INTO users VALUES ('U9', 'Null', 'Test', 'null@test.com', 'hash', '2026-01-01')")
+    conn.execute(
+        "INSERT INTO users VALUES ('U9', 'Null', 'Test', 'null@test.com', 'hash', '2026-01-01')"
+    )
     conn.execute("INSERT INTO accounts VALUES ('A9', 'U9', 'checking', NULL, 'INR', 1)")
     conn.commit()
 
@@ -267,13 +269,17 @@ def test_trigger_preservation_and_auditable_null_warning(tmp_path, caplog):
 
     # 2. Verify auditable log warning was logged with structured extra attributes
     assert "legacy_money_data_corruption_normalized" in caplog.text
-    record = [r for r in caplog.records if r.msg == "legacy_money_data_corruption_normalized"][0]
+    record = [
+        r for r in caplog.records if r.msg == "legacy_money_data_corruption_normalized"
+    ][0]
     assert record.reason == "NULL balance normalized to 0 paise"
     assert record.table == "accounts"
     assert record.primary_key == "A9"
 
     # 3. Verify normalized value is 0
-    row = conn.execute("SELECT balance_paise FROM accounts WHERE account_id = 'A9'").fetchone()
+    row = conn.execute(
+        "SELECT balance_paise FROM accounts WHERE account_id = 'A9'"
+    ).fetchone()
     assert row[0] == 0
 
     conn.close()
@@ -298,4 +304,3 @@ def test_tool_responses_use_minor_units_and_formatting():
         assert isinstance(txn["amount_paise"], int)
         assert "amount_formatted" in txn
         assert "amount" in txn  # Compatibility field
-

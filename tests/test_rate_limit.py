@@ -1,8 +1,8 @@
+import sys
 import time
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import sys
+
 import pytest
 from fastapi import HTTPException, Request, status
 from fastapi.testclient import TestClient
@@ -10,7 +10,12 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from api.main import app
-from api.rate_limiter import RateLimiter, rate_limit_chat, rate_limit_verify, rate_limit_default
+from api.rate_limiter import (
+    RateLimiter,
+    rate_limit_chat,
+    rate_limit_default,
+    rate_limit_verify,
+)
 
 
 def make_mock_request(client_ip: str, path: str = "/chat") -> Request:

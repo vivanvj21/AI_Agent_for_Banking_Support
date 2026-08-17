@@ -4,8 +4,6 @@ Card Repository handling card status updates (active, locked, reported_lost).
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +15,7 @@ class CardRepository(BaseRepository[CardModel]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(CardModel, session)
 
-    async def get_user_card(self, user_id: str, card_id: str) -> Optional[CardModel]:
+    async def get_user_card(self, user_id: str, card_id: str) -> CardModel | None:
         stmt = (
             select(CardModel)
             .join(AccountModel, CardModel.account_id == AccountModel.account_id)
@@ -26,7 +24,7 @@ class CardRepository(BaseRepository[CardModel]):
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
 
-    async def list_user_cards(self, user_id: str) -> List[CardModel]:
+    async def list_user_cards(self, user_id: str) -> list[CardModel]:
         stmt = (
             select(CardModel)
             .join(AccountModel, CardModel.account_id == AccountModel.account_id)

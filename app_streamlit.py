@@ -104,34 +104,37 @@ state = st.session_state.state
 if not state.get("verified") and state.get("intent") in ("account", "fraud"):
     st.warning("🔒 Identity Verification Required")
     col1, col2 = st.columns([3, 1])
-    with col1:
-        with st.form("verification_form"):
-            auth_uid = st.text_input("User ID", placeholder="e.g. U1002").strip()
-            auth_pin = st.text_input("4-digit PIN", type="password").strip()
-            submit_btn = st.form_submit_button("Verify & Proceed")
+    with col1, st.form("verification_form"):
+        auth_uid = st.text_input("User ID", placeholder="e.g. U1002").strip()
+        auth_pin = st.text_input("4-digit PIN", type="password").strip()
+        submit_btn = st.form_submit_button("Verify & Proceed")
 
-            if submit_btn:
-                if not auth_uid or not auth_pin:
-                    st.error("Please enter both User ID and PIN.")
-                else:
-                    state["auth_user_id"] = auth_uid
-                    state["auth_pin"] = auth_pin
-                    state["turn"] += 1
-                    try:
-                        with st.spinner("Verifying..."):
-                            LOGGER.info("streamlit_auth_start", extra={"turn": state["turn"]})
-                            state = st.session_state.graph_app.invoke(state)
-                        persist_turn(state, "[Authenticated]")
-                        st.session_state.state = state
-                        # Sync Streamlit display history
-                        st.session_state.display_history.append(("user", "[Authenticated]"))
-                        st.session_state.display_history.append(("assistant", state["reply"]))
-                        st.rerun()
-                    except MissingAPIKeyError as exc:
-                        st.error("Missing LLM configuration.")
-                        st.stop()
-                    except Exception as exc:
-                        st.error(f"Verification failed: {exc}")
+        if submit_btn:
+            if not auth_uid or not auth_pin:
+                st.error("Please enter both User ID and PIN.")
+            else:
+                state["auth_user_id"] = auth_uid
+                state["auth_pin"] = auth_pin
+                state["turn"] += 1
+                try:
+                    with st.spinner("Verifying..."):
+                        LOGGER.info(
+                            "streamlit_auth_start", extra={"turn": state["turn"]}
+                        )
+                        state = st.session_state.graph_app.invoke(state)
+                    persist_turn(state, "[Authenticated]")
+                    st.session_state.state = state
+                    # Sync Streamlit display history
+                    st.session_state.display_history.append(("user", "[Authenticated]"))
+                    st.session_state.display_history.append(
+                        ("assistant", state["reply"])
+                    )
+                    st.rerun()
+                except MissingAPIKeyError:
+                    st.error("Missing LLM configuration.")
+                    st.stop()
+                except Exception as exc:
+                    st.error(f"Verification failed: {exc}")
     with col2:
         if st.button("Cancel Verification", use_container_width=True):
             state["intent"] = None
@@ -167,7 +170,8 @@ else:
             st.stop()
         except Exception:
             LOGGER.exception("streamlit_turn_failed")
-            state["reply"] = "Sorry, something went wrong while processing that request."
+            state["reply"] = (
+                "Sorry, something went wrong while processing that request."
+            )
             st.session_state.state = state
             st.rerun()
-

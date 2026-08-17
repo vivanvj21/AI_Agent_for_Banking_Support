@@ -9,8 +9,8 @@ it has gone through /verify or through the graph's verify_gate inside
 /chat — there is exactly one place identity gets attached to a session.
 """
 
-from functools import lru_cache
 import secrets
+from functools import lru_cache
 
 from fastapi import HTTPException, Request, status
 
@@ -90,7 +90,9 @@ def verify_perimeter_api_key(request: Request) -> None:
         return
 
     header_name = sec_cfg.api_key_header_name
-    provided_key = request.headers.get(header_name) or request.headers.get(header_name.lower())
+    provided_key = request.headers.get(header_name) or request.headers.get(
+        header_name.lower()
+    )
 
     if not provided_key or not secrets.compare_digest(provided_key, configured_key):
         raise HTTPException(

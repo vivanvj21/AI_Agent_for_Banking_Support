@@ -8,7 +8,6 @@ they can be overridden without touching code.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 
 
@@ -76,6 +75,7 @@ class MemoryConfig:
 def get_memory_config() -> MemoryConfig:
     """Build MemoryConfig from central settings."""
     from config import settings
+
     mem = settings.memory
     return MemoryConfig(
         max_conversation_turns=mem.max_conversation_turns,

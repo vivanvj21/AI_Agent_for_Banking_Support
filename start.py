@@ -75,11 +75,12 @@ def run_streamlit(port: int = 8501) -> None:
 def run_api(port: int = 8000, workers: int = 1, reload: bool = False) -> None:
     print(f"\n[API] Starting FastAPI on http://localhost:{port}")
     print(f"   Docs: http://localhost:{port}/docs\n")
-    
+
     # Configure Uvicorn proxy header support.
     from config import settings
+
     forwarded_ips = settings.deployment.forwarded_allow_ips
-    
+
     cmd = [
         _python(),
         "-m",
@@ -160,6 +161,7 @@ Examples:
 def print_startup_banner(mode: str) -> None:
     """Print a concise production startup banner showing key configuration parameters."""
     from config import settings
+
     print("=" * 60)
     print("  AUTONOMOUS BANK ASSISTANT - STARTING SYSTEM")
     print(f"  Mode:         {mode.upper()}")
@@ -174,6 +176,7 @@ def print_startup_banner(mode: str) -> None:
 def main() -> None:
     _load_env()
     from config import reload_settings
+
     settings = reload_settings()
     args = _parse_args()
 

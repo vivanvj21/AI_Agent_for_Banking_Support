@@ -55,6 +55,7 @@ def get_langsmith_config() -> LangSmithConfig:
     """
     try:
         from config import settings
+
         obs = settings.observability
         api_key = obs.api_key.get_secret_value() or None
         enabled = obs.enabled

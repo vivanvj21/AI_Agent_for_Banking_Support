@@ -111,7 +111,7 @@ class MCPRegistry:
 
     def register_server(self, server: MCPServerEntry) -> None:
         self._servers[server.name] = server
-        LOGGER.debug("mcp_registry_server_registered", extra={"name": server.name})
+        LOGGER.debug("mcp_registry_server_registered", extra={"server": server.name})
 
     def add_tool(self, server_name: str, tool: MCPToolEntry) -> None:
         if server_name not in self._servers:

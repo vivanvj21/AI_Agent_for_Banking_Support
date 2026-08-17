@@ -1,14 +1,14 @@
 import os
 import sys
 from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from api import health
 from api.main import app
-import api.health as health
-from config import get_allowed_origins, get_rate_limit
 
 
 @pytest.fixture
@@ -31,11 +31,12 @@ def test_readiness_healthy(client, monkeypatch):
     """Test readiness probe returns 200 when all dependencies are healthy."""
     monkeypatch.setattr(health, "_ready", True)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-here")
-    
+
     from mcp_platform.manager import get_mcp_manager
+
     mcp_mgr = get_mcp_manager()
     monkeypatch.setattr(mcp_mgr, "_initialized", True)
-    
+
     response = client.get("/health/ready")
     assert response.status_code == 200
     data = response.json()
@@ -53,11 +54,13 @@ def test_readiness_degraded_database(client, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key-here")
 
     from mcp_platform.manager import get_mcp_manager
+
     mcp_mgr = get_mcp_manager()
     monkeypatch.setattr(mcp_mgr, "_initialized", True)
 
     # Force a database failure on get_connection
     import db.connection
+
     def mock_get_connection(*args, **kwargs):
         raise RuntimeError("Database file is locked.")
 

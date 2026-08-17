@@ -6,15 +6,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 import redis.asyncio as aioredis
-
 from config import settings
 
 LOGGER = logging.getLogger(__name__)
 
-_redis_client: Optional[aioredis.Redis] = None
+_redis_client: aioredis.Redis | None = None
 
 
 def get_redis_url() -> str:
@@ -33,7 +31,10 @@ async def get_redis_client() -> aioredis.Redis:
             max_connections=settings.redis.max_connections,
             socket_timeout=settings.redis.socket_timeout,
         )
-        LOGGER.info("redis_async_client_initialized", extra={"redis_url_redacted": url.split("@")[-1]})
+        LOGGER.info(
+            "redis_async_client_initialized",
+            extra={"redis_url_redacted": url.split("@")[-1]},
+        )
     return _redis_client
 
 

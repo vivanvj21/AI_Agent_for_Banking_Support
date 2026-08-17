@@ -9,8 +9,6 @@ The CLI/front-end is responsible for collecting user_id + PIN once per
 session and passing them into the graph state; this module only checks them.
 """
 
-import re
-
 from tools.account_tools import verify_identity
 
 
@@ -40,4 +38,3 @@ def try_verify(
         }
     result = verify_identity(user_id, pin)
     return result
-

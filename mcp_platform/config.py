@@ -6,7 +6,6 @@ All values are env-overridable for deployment-time tuning.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 
 
@@ -77,6 +76,7 @@ class MCPPlatformConfig:
 def get_mcp_config() -> MCPPlatformConfig:
     """Build MCP config from central settings."""
     from config import settings
+
     m = settings.mcp
     return MCPPlatformConfig(
         auto_discover=m.auto_discover,

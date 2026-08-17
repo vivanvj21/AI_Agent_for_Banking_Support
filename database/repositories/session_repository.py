@@ -5,7 +5,6 @@ Session Repository handling conversation sessions and turns.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +17,9 @@ class SessionRepository(BaseRepository[SessionModel]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(SessionModel, session)
 
-    async def get_or_create_session(self, session_id: str, channel: str = "cli") -> SessionModel:
+    async def get_or_create_session(
+        self, session_id: str, channel: str = "cli"
+    ) -> SessionModel:
         sess = await self.get_by_id(session_id)
         now = datetime.now(timezone.utc)
         if not sess:
@@ -41,7 +42,9 @@ class SessionRepository(BaseRepository[SessionModel]):
             sess.last_active_at = datetime.now(timezone.utc)
             await self.session.flush()
 
-    async def add_message(self, session_id: str, turn: int, role: str, content: str) -> MessageModel:
+    async def add_message(
+        self, session_id: str, turn: int, role: str, content: str
+    ) -> MessageModel:
         msg = MessageModel(
             session_id=session_id,
             turn=turn,
@@ -53,7 +56,9 @@ class SessionRepository(BaseRepository[SessionModel]):
         await self.session.flush()
         return msg
 
-    async def get_messages(self, session_id: str, limit: int = 100) -> List[MessageModel]:
+    async def get_messages(
+        self, session_id: str, limit: int = 100
+    ) -> list[MessageModel]:
         stmt = (
             select(MessageModel)
             .where(MessageModel.session_id == session_id)

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from redis.connection import get_redis_client
 
@@ -21,7 +21,7 @@ class RedisSessionManager:
     def _key(self, session_id: str) -> str:
         return f"{self.prefix}{session_id}"
 
-    async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_session(self, session_id: str) -> dict[str, Any] | None:
         try:
             client = await get_redis_client()
             raw = await client.get(self._key(session_id))
@@ -30,10 +30,15 @@ class RedisSessionManager:
                 await client.expire(self._key(session_id), self.default_ttl)
                 return json.loads(raw)
         except Exception as exc:
-            LOGGER.error("redis_session_get_failed", extra={"session_id": session_id, "error": str(exc)})
+            LOGGER.error(
+                "redis_session_get_failed",
+                extra={"session_id": session_id, "error": str(exc)},
+            )
         return None
 
-    async def save_session(self, session_id: str, data: Dict[str, Any], ttl: Optional[int] = None) -> bool:
+    async def save_session(
+        self, session_id: str, data: dict[str, Any], ttl: int | None = None
+    ) -> bool:
         try:
             client = await get_redis_client()
             expiry = ttl or self.default_ttl
@@ -41,7 +46,10 @@ class RedisSessionManager:
             await client.set(self._key(session_id), payload, ex=expiry)
             return True
         except Exception as exc:
-            LOGGER.error("redis_session_save_failed", extra={"session_id": session_id, "error": str(exc)})
+            LOGGER.error(
+                "redis_session_save_failed",
+                extra={"session_id": session_id, "error": str(exc)},
+            )
             return False
 
     async def delete_session(self, session_id: str) -> bool:
@@ -50,7 +58,10 @@ class RedisSessionManager:
             await client.delete(self._key(session_id))
             return True
         except Exception as exc:
-            LOGGER.error("redis_session_delete_failed", extra={"session_id": session_id, "error": str(exc)})
+            LOGGER.error(
+                "redis_session_delete_failed",
+                extra={"session_id": session_id, "error": str(exc)},
+            )
             return False
 
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Tuple
 
 from redis.connection import get_redis_client
 
@@ -49,7 +48,7 @@ class RedisRateLimiter:
         identifier: str,
         limit: int,
         window_seconds: int,
-    ) -> Tuple[bool, int, int]:
+    ) -> tuple[bool, int, int]:
         """
         Check rate limit.
         Returns: (allowed: bool, remaining: int, retry_after_seconds: int)
@@ -58,14 +57,19 @@ class RedisRateLimiter:
             client = await get_redis_client()
             key = f"{self.prefix}{identifier}"
             now = time.time()
-            
-            res = await client.eval(_LUA_RATE_LIMIT_SCRIPT, 1, key, now, window_seconds, limit)
+
+            res = await client.eval(
+                _LUA_RATE_LIMIT_SCRIPT, 1, key, now, window_seconds, limit
+            )
             allowed = bool(res[0])
             remaining = int(res[1])
             retry_after = int(res[2])
             return allowed, remaining, retry_after
         except Exception as exc:
-            LOGGER.error("redis_rate_limit_eval_failed", extra={"identifier": identifier, "error": str(exc)})
+            LOGGER.error(
+                "redis_rate_limit_eval_failed",
+                extra={"identifier": identifier, "error": str(exc)},
+            )
             # Fail-open safety policy under Redis failure
             return True, limit, 0
 

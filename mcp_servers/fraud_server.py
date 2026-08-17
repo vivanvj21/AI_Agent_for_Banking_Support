@@ -15,7 +15,7 @@ server end-to-end, including the cross-user ownership check.
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Tuple, List
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -42,9 +42,9 @@ mcp = FastMCP("bank-fraud-server")
 
 # Simple in-memory rate limiter: fixed window counter
 # Structure: { (user_id, tool_name): [timestamp1, timestamp2, ...] }
-_REQUEST_HISTORY: Dict[Tuple[str, str], List[float]] = {}
+_REQUEST_HISTORY: dict[tuple[str, str], list[float]] = {}
 _RATE_LIMIT_WINDOW_SECONDS = 60  # 1 minute
-_RATE_LIMIT_MAX_REQUESTS = 10    # max requests per window
+_RATE_LIMIT_MAX_REQUESTS = 10  # max requests per window
 
 
 def _validate_user_id(user_id: str) -> bool:
@@ -54,7 +54,7 @@ def _validate_user_id(user_id: str) -> bool:
     if len(user_id) > 32:
         return False
     # Allow alphanumeric, underscore, hyphen
-    return all(c.isalnum() or c in ('_', '-') for c in user_id)
+    return all(c.isalnum() or c in ("_", "-") for c in user_id)
 
 
 def _validate_card_id(card_id: str) -> bool:
@@ -99,16 +99,16 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
     and security logging.
     """
     # Extract parameters we care about for validation and logging
-    user_id = kwargs.get('user_id')
-    card_id = kwargs.get('card_id')
-    transaction_id = kwargs.get('transaction_id')
-    reason = kwargs.get('reason')
+    user_id = kwargs.get("user_id")
+    card_id = kwargs.get("card_id")
+    transaction_id = kwargs.get("transaction_id")
+    reason = kwargs.get("reason")
 
     # Input validation
     if not _validate_user_id(user_id):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "reason": "invalid_user_id"}
+            extra={"tool": tool_name, "user_id": user_id, "reason": "invalid_user_id"},
         )
         return {"error": "Invalid request."}
 
@@ -116,7 +116,12 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
         if not _validate_card_id(card_id):
             LOGGER.warning(
                 "mcp_validation_failed",
-                extra={"tool": tool_name, "user_id": user_id, "card_id": card_id, "reason": "invalid_card_id"}
+                extra={
+                    "tool": tool_name,
+                    "user_id": user_id,
+                    "card_id": card_id,
+                    "reason": "invalid_card_id",
+                },
             )
             return {"error": "Invalid request."}
 
@@ -124,21 +129,30 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
         if not _validate_transaction_id(transaction_id):
             LOGGER.warning(
                 "mcp_validation_failed",
-                extra={"tool": tool_name, "user_id": user_id, "transaction_id": transaction_id, "reason": "invalid_transaction_id"}
+                extra={
+                    "tool": tool_name,
+                    "user_id": user_id,
+                    "transaction_id": transaction_id,
+                    "reason": "invalid_transaction_id",
+                },
             )
             return {"error": "Invalid request."}
         if not _validate_reason(reason):
             LOGGER.warning(
                 "mcp_validation_failed",
-                extra={"tool": tool_name, "user_id": user_id, "reason": reason, "reason": "invalid_reason"}
+                extra={
+                    "tool": tool_name,
+                    "user_id": user_id,
+                    "reason": reason,
+                    "validation_error": "invalid_reason",
+                },
             )
             return {"error": "Invalid request."}
 
     # Rate limiting
     if _is_rate_limited(user_id, tool_name):
         LOGGER.warning(
-            "mcp_rate_limit_exceeded",
-            extra={"tool": tool_name, "user_id": user_id}
+            "mcp_rate_limit_exceeded", extra={"tool": tool_name, "user_id": user_id}
         )
         return {"error": "Too many requests. Please try again later."}
 
@@ -155,8 +169,8 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
                 "card_id": card_id,
                 "transaction_id": transaction_id,
                 "reason": reason,
-                "error": result.get("error")
-            }
+                "error": result.get("error"),
+            },
         )
     else:
         LOGGER.info(
@@ -166,8 +180,8 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
                 "user_id": user_id,
                 "card_id": card_id,
                 "transaction_id": transaction_id,
-                "reason": reason
-            }
+                "reason": reason,
+            },
         )
 
     return result
@@ -182,7 +196,9 @@ def lock_card(user_id: str, card_id: str) -> dict:
 @mcp.tool()
 def unlock_card(user_id: str, card_id: str) -> dict:
     """Unlock a previously locked card belonging to the given user."""
-    return secure_mcp_call("unlock_card", _unlock_card, user_id=user_id, card_id=card_id)
+    return secure_mcp_call(
+        "unlock_card", _unlock_card, user_id=user_id, card_id=card_id
+    )
 
 
 @mcp.tool()

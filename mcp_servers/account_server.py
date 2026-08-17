@@ -22,7 +22,7 @@ a tool, all inside this same conversation, no other setup needed).
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Tuple, List
+from typing import Any
 
 # Make the existing tools/ package importable from this new location
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -37,9 +37,9 @@ mcp = FastMCP("bank-account-server")
 
 # Simple in-memory rate limiter: fixed window counter
 # Structure: { (user_id, tool_name): [timestamp1, timestamp2, ...] }
-_REQUEST_HISTORY: Dict[Tuple[str, str], List[float]] = {}
+_REQUEST_HISTORY: dict[tuple[str, str], list[float]] = {}
 _RATE_LIMIT_WINDOW_SECONDS = 60  # 1 minute
-_RATE_LIMIT_MAX_REQUESTS = 10    # max requests per window
+_RATE_LIMIT_MAX_REQUESTS = 10  # max requests per window
 
 
 def _validate_user_id(user_id: str) -> bool:
@@ -49,7 +49,7 @@ def _validate_user_id(user_id: str) -> bool:
     if len(user_id) > 32:
         return False
     # Allow alphanumeric, underscore, hyphen
-    return all(c.isalnum() or c in ('_', '-') for c in user_id)
+    return all(c.isalnum() or c in ("_", "-") for c in user_id)
 
 
 def _validate_account_id(account_id: str | None) -> bool:
@@ -89,37 +89,46 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
     and security logging.
     """
     # Extract parameters we care about for validation and logging
-    user_id = kwargs.get('user_id')
-    account_id = kwargs.get('account_id')
-    limit = kwargs.get('limit')
+    user_id = kwargs.get("user_id")
+    account_id = kwargs.get("account_id")
+    limit = kwargs.get("limit")
 
     # Input validation
     if not _validate_user_id(user_id):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "reason": "invalid_user_id"}
+            extra={"tool": tool_name, "user_id": user_id, "reason": "invalid_user_id"},
         )
         return {"error": "Invalid request."}
 
     if not _validate_account_id(account_id):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "account_id": account_id, "reason": "invalid_account_id"}
+            extra={
+                "tool": tool_name,
+                "user_id": user_id,
+                "account_id": account_id,
+                "reason": "invalid_account_id",
+            },
         )
         return {"error": "Invalid request."}
 
     if limit is not None and not _validate_limit(limit):
         LOGGER.warning(
             "mcp_validation_failed",
-            extra={"tool": tool_name, "user_id": user_id, "limit": limit, "reason": "invalid_limit"}
+            extra={
+                "tool": tool_name,
+                "user_id": user_id,
+                "limit": limit,
+                "reason": "invalid_limit",
+            },
         )
         return {"error": "Invalid request."}
 
     # Rate limiting
     if _is_rate_limited(user_id, tool_name):
         LOGGER.warning(
-            "mcp_rate_limit_exceeded",
-            extra={"tool": tool_name, "user_id": user_id}
+            "mcp_rate_limit_exceeded", extra={"tool": tool_name, "user_id": user_id}
         )
         return {"error": "Too many requests. Please try again later."}
 
@@ -135,8 +144,8 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
                 "user_id": user_id,
                 "account_id": account_id,
                 "limit": limit,
-                "error": result.get("error")
-            }
+                "error": result.get("error"),
+            },
         )
     else:
         LOGGER.info(
@@ -145,8 +154,8 @@ def secure_mcp_call(tool_name: str, func: callable, **kwargs: Any) -> dict:
                 "tool": tool_name,
                 "user_id": user_id,
                 "account_id": account_id,
-                "limit": limit
-            }
+                "limit": limit,
+            },
         )
 
     return result

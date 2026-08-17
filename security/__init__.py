@@ -7,11 +7,11 @@ from security.rbac import UserRole, require_roles
 from security.sanitization import detect_prompt_injection, sanitize_input_text
 
 __all__ = [
+    "UserRole",
     "create_access_token",
     "create_refresh_token",
     "decode_token",
-    "UserRole",
+    "detect_prompt_injection",
     "require_roles",
     "sanitize_input_text",
-    "detect_prompt_injection",
 ]

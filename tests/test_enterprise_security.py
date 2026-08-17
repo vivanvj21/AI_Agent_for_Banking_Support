@@ -2,12 +2,9 @@
 Unit Tests for Security Components: JWT, RBAC, Input Sanitization, Prompt Injection.
 """
 
-import pytest
-from fastapi import HTTPException
-
 from security.jwt import create_access_token, create_refresh_token, decode_token
 from security.rbac import UserRole
-from security.sanitization import sanitize_input_text, detect_prompt_injection
+from security.sanitization import detect_prompt_injection, sanitize_input_text
 
 
 def test_jwt_token_creation_and_decoding():

@@ -25,10 +25,10 @@ successful login.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
 import hashlib
 import logging
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 from db.connection import DB_PATH, get_connection
 from db.init_db import ensure_database
@@ -151,7 +151,9 @@ def verify_identity(user_id: str, pin: str) -> dict:
                 try:
                     locked_until = datetime.fromisoformat(locked_until_str)
                     if now < locked_until:
-                        LOGGER.warning("verify_identity_blocked_locked", extra={"user_id": user_id})
+                        LOGGER.warning(
+                            "verify_identity_blocked_locked", extra={"user_id": user_id}
+                        )
                         return {
                             "verified": False,
                             "error": "This account is temporarily locked due to multiple failed authentication attempts. Please try again later.",
@@ -203,7 +205,11 @@ def verify_identity(user_id: str, pin: str) -> dict:
                     )
                     LOGGER.warning(
                         "verify_identity_locked",
-                        extra={"user_id": user_id, "failed_attempts": failed_attempts, "locked_until": new_locked_until}
+                        extra={
+                            "user_id": user_id,
+                            "failed_attempts": failed_attempts,
+                            "locked_until": new_locked_until,
+                        },
                     )
                     return {
                         "verified": False,
@@ -214,7 +220,10 @@ def verify_identity(user_id: str, pin: str) -> dict:
                         "UPDATE users SET failed_attempts = ?, locked_until = ? WHERE user_id = ?",
                         (failed_attempts, locked_until_str, user_id),
                     )
-                    LOGGER.warning("verify_identity_failed", extra={"user_id": user_id, "failed_attempts": failed_attempts})
+                    LOGGER.warning(
+                        "verify_identity_failed",
+                        extra={"user_id": user_id, "failed_attempts": failed_attempts},
+                    )
                     return {
                         "verified": False,
                         "error": "User ID or PIN did not match our records.",
@@ -228,7 +237,7 @@ def get_balance(user_id: str, account_id: str | None = None) -> dict:
     Get balance for a specific account, or all accounts for a user if account_id is omitted.
     Uses authoritative balance_paise (integer minor units).
     """
-    from utils.money import paise_to_rupees, format_currency
+    from utils.money import format_currency, paise_to_rupees
 
     conn = _connect()
     try:
@@ -243,7 +252,9 @@ def get_balance(user_id: str, account_id: str | None = None) -> dict:
             res = dict(row)
             paise = res["balance_paise"]
             res["balance"] = paise_to_rupees(paise)  # Read-only compatibility field
-            res["balance_formatted"] = format_currency(paise, currency=res.get("currency", "INR"))
+            res["balance_formatted"] = format_currency(
+                paise, currency=res.get("currency", "INR")
+            )
             return res
 
         rows = conn.execute(
@@ -257,7 +268,9 @@ def get_balance(user_id: str, account_id: str | None = None) -> dict:
             res = dict(r)
             paise = res["balance_paise"]
             res["balance"] = paise_to_rupees(paise)  # Read-only compatibility field
-            res["balance_formatted"] = format_currency(paise, currency=res.get("currency", "INR"))
+            res["balance_formatted"] = format_currency(
+                paise, currency=res.get("currency", "INR")
+            )
             formatted_rows.append(res)
         return {"accounts": formatted_rows}
     finally:
@@ -271,7 +284,7 @@ def get_transaction_history(
     Get recent transactions for a user, optionally scoped to one account.
     Uses authoritative amount_paise (integer minor units).
     """
-    from utils.money import paise_to_rupees, format_currency
+    from utils.money import format_currency, paise_to_rupees
 
     conn = _connect()
     try:

@@ -5,12 +5,12 @@ Memory Repository handling long-term, turn, and profile memory storage.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import MemoryEntryModel, MemorySummaryModel, UserProfileModel
+from database.models import MemoryEntryModel, UserProfileModel
 from database.repositories.base import BaseRepository
 
 
@@ -23,12 +23,12 @@ class MemoryRepository(BaseRepository[MemoryEntryModel]):
         memory_id: str,
         memory_type: str,
         content: str,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        role: Optional[str] = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        role: str | None = None,
         importance: float = 0.5,
-        metadata_json: Optional[Dict[str, Any]] = None,
-        expires_at: Optional[datetime] = None,
+        metadata_json: dict[str, Any] | None = None,
+        expires_at: datetime | None = None,
     ) -> MemoryEntryModel:
         now = datetime.now(timezone.utc)
         entry = MemoryEntryModel(
@@ -51,7 +51,9 @@ class MemoryRepository(BaseRepository[MemoryEntryModel]):
         await self.session.flush()
         return entry
 
-    async def get_user_long_term_memories(self, user_id: str, limit: int = 50) -> List[MemoryEntryModel]:
+    async def get_user_long_term_memories(
+        self, user_id: str, limit: int = 50
+    ) -> list[MemoryEntryModel]:
         now = datetime.now(timezone.utc)
         stmt = (
             select(MemoryEntryModel)
@@ -59,15 +61,20 @@ class MemoryRepository(BaseRepository[MemoryEntryModel]):
                 MemoryEntryModel.user_id == user_id,
                 MemoryEntryModel.memory_type == "long_term",
                 MemoryEntryModel.is_deleted == 0,
-                (MemoryEntryModel.expires_at.is_(None)) | (MemoryEntryModel.expires_at > now),
+                (MemoryEntryModel.expires_at.is_(None))
+                | (MemoryEntryModel.expires_at > now),
             )
-            .order_by(MemoryEntryModel.importance.desc(), MemoryEntryModel.created_at.desc())
+            .order_by(
+                MemoryEntryModel.importance.desc(), MemoryEntryModel.created_at.desc()
+            )
             .limit(limit)
         )
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
 
-    async def get_session_conversation_turns(self, session_id: str, limit: int = 50) -> List[MemoryEntryModel]:
+    async def get_session_conversation_turns(
+        self, session_id: str, limit: int = 50
+    ) -> list[MemoryEntryModel]:
         stmt = (
             select(MemoryEntryModel)
             .where(
@@ -81,7 +88,9 @@ class MemoryRepository(BaseRepository[MemoryEntryModel]):
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
 
-    async def upsert_user_profile(self, user_id: str, preferences: Dict[str, Any], facts: List[str]) -> UserProfileModel:
+    async def upsert_user_profile(
+        self, user_id: str, preferences: dict[str, Any], facts: list[str]
+    ) -> UserProfileModel:
         stmt = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
         res = await self.session.execute(stmt)
         prof = res.scalar_one_or_none()
@@ -103,7 +112,7 @@ class MemoryRepository(BaseRepository[MemoryEntryModel]):
         await self.session.flush()
         return prof
 
-    async def get_user_profile(self, user_id: str) -> Dict[str, Any]:
+    async def get_user_profile(self, user_id: str) -> dict[str, Any]:
         stmt = select(UserProfileModel).where(UserProfileModel.user_id == user_id)
         res = await self.session.execute(stmt)
         prof = res.scalar_one_or_none()

@@ -12,13 +12,12 @@ Rules:
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Any
+from decimal import ROUND_HALF_UP, Decimal
 
 PAISE_PER_RUPEE = 100
 
 
-def to_paise(val: int | float | str | Decimal | None) -> int:
+def to_paise(val: float | str | Decimal | None) -> int:
     """
     Convert a monetary value (Rupees) into integer minor units (paise).
 
@@ -36,7 +35,7 @@ def to_paise(val: int | float | str | Decimal | None) -> int:
     try:
         # Convert float/str/Decimal via Decimal string representation to avoid float drift
         d = Decimal(str(val))
-        paise = (d * PAISE_PER_RUPEE).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        paise = (d * PAISE_PER_RUPEE).quantize(Decimal(1), rounding=ROUND_HALF_UP)
         return int(paise)
     except Exception:
         # Fail-safe default for corrupted/unexpected non-numeric legacy data

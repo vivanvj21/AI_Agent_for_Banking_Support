@@ -44,7 +44,9 @@ tmp_upload_dir = None
 
 
 def on_starting(server):
-    server.log.info("gunicorn_master_starting", extra={"bind": bind, "workers": workers})
+    server.log.info(
+        "gunicorn_master_starting", extra={"bind": bind, "workers": workers}
+    )
 
 
 def on_exit(server):

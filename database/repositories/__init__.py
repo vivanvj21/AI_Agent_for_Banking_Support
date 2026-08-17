@@ -11,11 +11,11 @@ from database.repositories.transaction_repository import TransactionRepository
 from database.repositories.user_repository import UserRepository
 
 __all__ = [
-    "BaseRepository",
-    "UserRepository",
     "AccountRepository",
+    "BaseRepository",
     "CardRepository",
-    "TransactionRepository",
-    "SessionRepository",
     "MemoryRepository",
+    "SessionRepository",
+    "TransactionRepository",
+    "UserRepository",
 ]

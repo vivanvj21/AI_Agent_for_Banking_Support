@@ -1,18 +1,20 @@
-import sys
-import time
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-import pytest
 import sqlite3
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tools.account_tools import verify_identity, _connect, DB_PATH
+from tools.account_tools import DB_PATH, _connect, verify_identity
+
 
 @pytest.fixture(autouse=True)
 def reset_lockout_states():
     """Ensure user U1002 has 0 failed attempts and NULL locked_until before and after tests."""
     from db.init_db import ensure_database
+
     ensure_database(seed_demo_data=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
@@ -59,7 +61,7 @@ def test_lockout_expiration_unlocks_account():
     past_time = datetime.now(timezone.utc) - timedelta(minutes=1)
     conn.execute(
         "UPDATE users SET locked_until = ? WHERE user_id = 'U1002'",
-        (past_time.isoformat(),)
+        (past_time.isoformat(),),
     )
     conn.commit()
     conn.close()

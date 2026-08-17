@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from redis.connection import get_redis_client
 
@@ -22,14 +22,16 @@ class CacheManager:
     def _key(self, key: str) -> str:
         return f"{self.prefix}{key}"
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         try:
             client = await get_redis_client()
             raw = await client.get(self._key(key))
             if raw is not None:
                 return json.loads(raw)
         except Exception as exc:
-            LOGGER.warning("redis_cache_get_failed", extra={"key": key, "error": str(exc)})
+            LOGGER.warning(
+                "redis_cache_get_failed", extra={"key": key, "error": str(exc)}
+            )
         return None
 
     async def set(self, key: str, value: Any, ttl_seconds: int = 3600) -> bool:
@@ -39,7 +41,9 @@ class CacheManager:
             await client.set(self._key(key), payload, ex=ttl_seconds)
             return True
         except Exception as exc:
-            LOGGER.warning("redis_cache_set_failed", extra={"key": key, "error": str(exc)})
+            LOGGER.warning(
+                "redis_cache_set_failed", extra={"key": key, "error": str(exc)}
+            )
             return False
 
     async def delete(self, key: str) -> bool:
@@ -48,7 +52,9 @@ class CacheManager:
             await client.delete(self._key(key))
             return True
         except Exception as exc:
-            LOGGER.warning("redis_cache_delete_failed", extra={"key": key, "error": str(exc)})
+            LOGGER.warning(
+                "redis_cache_delete_failed", extra={"key": key, "error": str(exc)}
+            )
             return False
 
     async def clear_prefix(self, pattern: str) -> int:
@@ -58,7 +64,10 @@ class CacheManager:
             if keys:
                 return await client.delete(*keys)
         except Exception as exc:
-            LOGGER.warning("redis_cache_clear_failed", extra={"pattern": pattern, "error": str(exc)})
+            LOGGER.warning(
+                "redis_cache_clear_failed",
+                extra={"pattern": pattern, "error": str(exc)},
+            )
         return 0
 
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import html
 import re
-from typing import Tuple
 
 # Prominent prompt injection attack patterns
 _PROMPT_INJECTION_PATTERNS = [
@@ -26,7 +25,7 @@ def sanitize_input_text(text: str) -> str:
     return html.escape(text.strip())
 
 
-def detect_prompt_injection(text: str) -> Tuple[bool, str]:
+def detect_prompt_injection(text: str) -> tuple[bool, str]:
     """
     Scans input for prompt injection heuristics.
     Returns: (is_injection_detected: bool, matching_pattern: str)

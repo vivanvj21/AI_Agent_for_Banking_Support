@@ -8,7 +8,6 @@ environment variables for deployment-time tuning.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 
 
@@ -62,6 +61,7 @@ class OrchestrationConfig:
 def get_orchestration_config() -> OrchestrationConfig:
     """Build config from central settings."""
     from config import settings
+
     orch = settings.orchestration
     return OrchestrationConfig(
         high_confidence_threshold=orch.high_confidence_threshold,

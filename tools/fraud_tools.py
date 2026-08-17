@@ -142,7 +142,7 @@ def report_fraud_transaction(
 
 def get_flagged_transactions(user_id: str) -> dict:
     """List all transactions currently flagged as fraud for this user."""
-    from utils.money import paise_to_rupees, format_currency
+    from utils.money import format_currency, paise_to_rupees
 
     conn = _connect()
     try:

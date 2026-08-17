@@ -40,6 +40,7 @@ _langsmith_initialized: bool = False
 
 # ── Secret Str Wrapper ─────────────────────────────────────────────────────────
 
+
 class SecretStr:
     """
     Encapsulates a secret string value (API keys, tokens, passwords).
@@ -61,7 +62,7 @@ class SecretStr:
     def __len__(self) -> int:
         return len(self._value)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, SecretStr):
             return self._value == other._value
         if isinstance(other, str):
@@ -90,6 +91,7 @@ class SecretStr:
 
 # ── Exceptions ─────────────────────────────────────────────────────────────────
 
+
 class ConfigurationError(RuntimeError):
     """Raised when required runtime configuration is missing or invalid."""
 
@@ -116,6 +118,7 @@ class LLMProviderConfig:
 
 # ── Domain Configuration Sub-Classes ─────────────────────────────────────────
 
+
 @dataclass
 class AppSettings:
     name: str = "Autonomous Bank Assistant"
@@ -140,7 +143,11 @@ class SecuritySettings:
     api_key: SecretStr = field(default_factory=lambda: SecretStr(""))
     api_key_header_name: str = "X-API-Key"
     require_api_key: bool = True
-    jwt_secret_key: SecretStr = field(default_factory=lambda: SecretStr("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+    jwt_secret_key: SecretStr = field(
+        default_factory=lambda: SecretStr(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+    )
 
 
 @dataclass
@@ -252,6 +259,7 @@ class EvaluationSettings:
 
 # ── AppConfig Master Container ───────────────────────────────────────────────
 
+
 @dataclass
 class AppConfig:
     """Master single source of truth for application configuration."""
@@ -284,7 +292,11 @@ class AppConfig:
                 sub_dict: dict[str, Any] = {}
                 for prop_key, prop_val in domain_obj.__dict__.items():
                     if isinstance(prop_val, SecretStr):
-                        sub_dict[prop_key] = prop_val.get_secret_value() if include_secrets else str(prop_val)
+                        sub_dict[prop_key] = (
+                            prop_val.get_secret_value()
+                            if include_secrets
+                            else str(prop_val)
+                        )
                     elif isinstance(prop_val, Path):
                         sub_dict[prop_key] = str(prop_val)
                     else:
@@ -324,7 +336,16 @@ class AppConfig:
 
         # 1. App
         env_profile = (get_val("ENV") or "development").lower()
-        if env_profile not in ("development", "dev", "local", "testing", "test", "staging", "production", "prod"):
+        if env_profile not in (
+            "development",
+            "dev",
+            "local",
+            "testing",
+            "test",
+            "staging",
+            "production",
+            "prod",
+        ):
             raise ConfigurationError(f"Invalid ENV profile: {env_profile!r}")
         app_settings = AppSettings(env=env_profile)
 
@@ -337,7 +358,9 @@ class AppConfig:
             raise ConfigurationError(f"Invalid port or worker count: {exc}")
 
         if not (1 <= port_st <= 65535) or not (1 <= port_api <= 65535):
-            raise ConfigurationError(f"Port numbers out of valid range (1-65535): st={port_st}, api={port_api}")
+            raise ConfigurationError(
+                f"Port numbers out of valid range (1-65535): st={port_st}, api={port_api}"
+            )
         if workers < 1:
             raise ConfigurationError(f"API_WORKERS must be >= 1, got {workers}")
 
@@ -376,7 +399,10 @@ class AppConfig:
 
         # Perimeter API Auth (Phase 12)
         api_key_val = SecretStr(get_val("API_KEY"))
-        perimeter_opt_out = (get_val("PERIMETER_AUTH_OPT_OUT") or "false").lower() in ("true", "1")
+        perimeter_opt_out = (get_val("PERIMETER_AUTH_OPT_OUT") or "false").lower() in (
+            "true",
+            "1",
+        )
 
         if env_profile in ("production", "prod"):
             if not api_key_val:
@@ -409,8 +435,13 @@ class AppConfig:
 
         # 4. Database & Redis
         db_path_str = get_val("DB_PATH")
-        db_path = Path(db_path_str).resolve() if db_path_str else ROOT_DIR / "db" / "bank.db"
-        db_url = get_val("DATABASE_URL") or "postgresql+asyncpg://postgres:postgres@localhost:5432/bank_db"
+        db_path = (
+            Path(db_path_str).resolve() if db_path_str else ROOT_DIR / "db" / "bank.db"
+        )
+        db_url = (
+            get_val("DATABASE_URL")
+            or "postgresql+asyncpg://postgres:postgres@localhost:5432/bank_db"
+        )
         db_settings = DatabaseSettings(db_path=db_path, url=db_url)
 
         redis_url = get_val("REDIS_URL") or "redis://localhost:6379/0"
@@ -420,16 +451,22 @@ class AppConfig:
         log_level = (get_val("LOG_LEVEL") or "INFO").upper()
         if log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
             raise ConfigurationError(f"Invalid LOG_LEVEL: {log_level!r}")
-        json_log = (get_val("JSON_LOGGING") or "false").lower() == "true" or env_profile in ("production", "prod")
+        json_log = (
+            get_val("JSON_LOGGING") or "false"
+        ).lower() == "true" or env_profile in ("production", "prod")
         log_settings = LoggingSettings(level=log_level, json_logging=json_log)
 
         # 6. LLM
         llm_provider = (get_val("LLM_PROVIDER") or "anthropic").lower()
         if llm_provider != "anthropic":
-            raise ConfigurationError(f"Unsupported LLM_PROVIDER={llm_provider!r}. Supported: anthropic.")
+            raise ConfigurationError(
+                f"Unsupported LLM_PROVIDER={llm_provider!r}. Supported: anthropic."
+            )
         llm_key = SecretStr(get_val("ANTHROPIC_API_KEY"))
         llm_model = get_val("ANTHROPIC_MODEL", "claude-sonnet-4-5")
-        llm_settings = LLMSettings(provider=llm_provider, api_key=llm_key, model=llm_model)
+        llm_settings = LLMSettings(
+            provider=llm_provider, api_key=llm_key, model=llm_model
+        )
 
         # 7. Embedding
         voyage_key = SecretStr(get_val("VOYAGE_API_KEY"))
@@ -443,7 +480,11 @@ class AppConfig:
         # 8. Observability
         ls_tracing = (get_val("LANGSMITH_TRACING") or "false").lower() in ("true", "1")
         ls_key = SecretStr(get_val("LANGSMITH_API_KEY") or get_val("LANGCHAIN_API_KEY"))
-        ls_project = get_val("LANGSMITH_PROJECT") or get_val("LANGCHAIN_PROJECT") or "bank-assistant"
+        ls_project = (
+            get_val("LANGSMITH_PROJECT")
+            or get_val("LANGCHAIN_PROJECT")
+            or "bank-assistant"
+        )
         ls_endpoint = get_val("LANGSMITH_ENDPOINT") or get_val("LANGCHAIN_ENDPOINT")
         obs_settings = ObservabilitySettings(
             enabled=ls_tracing and bool(ls_key),
@@ -459,7 +500,8 @@ class AppConfig:
             low_confidence_threshold=float(get_val("ORCH_LOW_CONF", 0.30)),
             fallback_threshold=float(get_val("ORCH_FALLBACK_CONF", 0.20)),
             max_fallback_attempts=int(get_val("ORCH_MAX_FALLBACKS", 2)),
-            enable_multi_agent_collab=(get_val("ORCH_ENABLE_COLLAB", "true")).lower() == "true",
+            enable_multi_agent_collab=(get_val("ORCH_ENABLE_COLLAB", "true")).lower()
+            == "true",
             max_context_tokens=int(get_val("ORCH_MAX_CTX_TOKENS", 3000)),
             max_history_turns=int(get_val("ORCH_MAX_HISTORY_TURNS", 10)),
             max_rag_chunks=int(get_val("ORCH_MAX_RAG_CHUNKS", 5)),
@@ -472,11 +514,13 @@ class AppConfig:
         pref_raw = get_val("MCP_PREFERRED_SERVERS", "")
         disabled_srvs = [s.strip() for s in dis_raw.split(",") if s.strip()]
         preferred_srvs = [s.strip() for s in pref_raw.split(",") if s.strip()]
-        
+
         mcp_timeout = float(get_val("MCP_DEFAULT_TIMEOUT", 30.0))
         mcp_retry_delay = float(get_val("MCP_RETRY_DELAY", 1.0))
         if mcp_timeout <= 0 or mcp_retry_delay <= 0:
-            raise ConfigurationError("MCP timeouts and retry delays must be positive numbers.")
+            raise ConfigurationError(
+                "MCP timeouts and retry delays must be positive numbers."
+            )
 
         mcp_settings = MCPSettings(
             disabled_servers=disabled_srvs,
@@ -487,10 +531,13 @@ class AppConfig:
             max_retries=int(get_val("MCP_MAX_RETRIES", 2)),
             retry_delay=mcp_retry_delay,
             max_concurrent_tools=int(get_val("MCP_MAX_CONCURRENT", 3)),
-            normalize_errors=(get_val("MCP_NORMALIZE_ERRORS", "true")).lower() == "true",
+            normalize_errors=(get_val("MCP_NORMALIZE_ERRORS", "true")).lower()
+            == "true",
             min_confidence_for_mcp=float(get_val("MCP_MIN_CONFIDENCE", 0.60)),
-            feed_results_to_memory=(get_val("MCP_FEED_MEMORY", "true")).lower() == "true",
-            feed_results_to_prompt=(get_val("MCP_FEED_PROMPT", "true")).lower() == "true",
+            feed_results_to_memory=(get_val("MCP_FEED_MEMORY", "true")).lower()
+            == "true",
+            feed_results_to_prompt=(get_val("MCP_FEED_PROMPT", "true")).lower()
+            == "true",
         )
 
         # 11. Memory
@@ -516,15 +563,23 @@ class AppConfig:
         )
 
         # 12. Evaluation
-        eval_metrics_raw = get_val("EVAL_METRICS", "faithfulness,answer_relevancy,context_precision,context_recall")
+        eval_metrics_raw = get_val(
+            "EVAL_METRICS",
+            "faithfulness,answer_relevancy,context_precision,context_recall",
+        )
         eval_metrics = [m.strip() for m in eval_metrics_raw.split(",") if m.strip()]
         eval_out_str = get_val("EVAL_OUTPUT_DIR")
-        eval_out_dir = Path(eval_out_str).resolve() if eval_out_str else ROOT_DIR / "evaluation_reports"
+        eval_out_dir = (
+            Path(eval_out_str).resolve()
+            if eval_out_str
+            else ROOT_DIR / "evaluation_reports"
+        )
 
         eval_settings = EvaluationSettings(
             metrics=eval_metrics,
             output_dir=eval_out_dir,
-            model=get_val("EVAL_MODEL") or get_val("ANTHROPIC_MODEL", "claude-sonnet-4-5"),
+            model=get_val("EVAL_MODEL")
+            or get_val("ANTHROPIC_MODEL", "claude-sonnet-4-5"),
             batch_size=int(get_val("EVAL_BATCH_SIZE", "10")),
         )
 
@@ -562,6 +617,7 @@ def _parse_rate_limit(val: str | None, default: tuple[int, int]) -> tuple[int, i
 
 # ── Global Settings Instance & Dynamic Proxy ───────────────────────────────────
 
+
 class _SettingsProxy:
     """Dynamic proxy for AppConfig that evaluates the current environment on attribute access."""
 
@@ -587,6 +643,7 @@ def reload_settings(env_overrides: dict[str, str] | None = None) -> AppConfig:
 
 
 # ── Backward Compatibility API Delegates ──────────────────────────────────────
+
 
 def get_llm_config(provider: str | None = None) -> LLMProviderConfig:
     """Return the configured LLM provider without exposing raw secret values."""
@@ -683,7 +740,9 @@ def get_allowed_origins() -> list[str]:
     return AppConfig.load_from_env().security.allowed_origins
 
 
-def get_rate_limit(env_var: str, default_times: int, default_seconds: int) -> tuple[int, int]:
+def get_rate_limit(
+    env_var: str, default_times: int, default_seconds: int
+) -> tuple[int, int]:
     """Expose rate limits from central settings based on environment variable key."""
     cfg = AppConfig.load_from_env()
     if env_var == "RATE_LIMIT_CHAT":

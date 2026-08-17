@@ -84,8 +84,13 @@ async def lifespan(app: FastAPI):
         LOGGER.exception("api_startup_mcp_init_failed")
 
     try:
+        from api.rate_limiter import (
+            rate_limit_chat,
+            rate_limit_default,
+            rate_limit_verify,
+        )
         from config import settings
-        from api.rate_limiter import rate_limit_chat, rate_limit_verify, rate_limit_default
+
         LOGGER.info(
             "api_startup_config",
             extra={
@@ -132,7 +137,7 @@ app = FastAPI(
 # allow_credentials is set to True. Under the W3C spec, this constraint prevents
 # the use of wildcard '*' origins, which is validated during config loading.
 from api.auth import router as auth_router
-from observability.metrics import prometheus_metrics_middleware, metrics_response
+from observability.metrics import prometheus_metrics_middleware
 
 app.add_middleware(
     CORSMiddleware,

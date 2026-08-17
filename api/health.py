@@ -16,8 +16,6 @@ import time
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from config import validate_startup
-
 LOGGER = logging.getLogger(__name__)
 
 _start_time = time.time()
@@ -58,6 +56,7 @@ def readiness():
     db_ok = False
     try:
         from db.connection import get_connection
+
         conn = get_connection()
         conn.execute("SELECT 1").fetchone()
         conn.close()
@@ -69,6 +68,7 @@ def readiness():
     chroma_ok = False
     try:
         from tools.faq_search import _get_collection
+
         collection = _get_collection()
         collection.count()
         chroma_ok = True
@@ -79,6 +79,7 @@ def readiness():
     mcp_ok = False
     try:
         from mcp_platform.manager import get_mcp_manager
+
         mcp_mgr = get_mcp_manager()
         mcp_ok = mcp_mgr.is_ready
     except Exception as exc:
@@ -88,6 +89,7 @@ def readiness():
     llm_ok = False
     try:
         from config import require_llm_config
+
         require_llm_config()
         llm_ok = True
     except Exception as exc:
@@ -109,6 +111,6 @@ def readiness():
                 "vector_store": "ok" if chroma_ok else "failed",
                 "mcp_platform": "ok" if mcp_ok else "failed",
                 "configuration": "ok" if llm_ok else "failed",
-            }
-        }
+            },
+        },
     )

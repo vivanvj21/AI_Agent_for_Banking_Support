@@ -4,9 +4,9 @@ Generic Async Base Repository providing CRUD, pagination, and transaction safety
 
 from __future__ import annotations
 
-from typing import Any, Generic, List, Optional, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import Base
@@ -17,15 +17,15 @@ ModelT = TypeVar("ModelT", bound=Base)
 class BaseRepository(Generic[ModelT]):
     """Generic async repository for SQLAlchemy models."""
 
-    def __init__(self, model: Type[ModelT], session: AsyncSession) -> None:
+    def __init__(self, model: type[ModelT], session: AsyncSession) -> None:
         self.model = model
         self.session = session
 
-    async def get_by_id(self, ident: Any) -> Optional[ModelT]:
+    async def get_by_id(self, ident: Any) -> ModelT | None:
         """Fetch a single record by primary key."""
         return await self.session.get(self.model, ident)
 
-    async def list_all(self, limit: int = 100, offset: int = 0) -> List[ModelT]:
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[ModelT]:
         """List all records with pagination."""
         stmt = select(self.model).limit(limit).offset(offset)
         res = await self.session.execute(stmt)
