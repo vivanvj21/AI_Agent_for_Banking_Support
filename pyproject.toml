@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",   # Line length is automatically managed by Black
+    "E402",   # Late imports after environment/sys.path setup are intentional
+    "E731",   # Helper lambda assignment
+    "BLE001", # Catching blind exception Exception is intentional for bank fail-safe error boundaries
+    "B008",   # FastAPI Depends() in function parameters is standard idiomatic FastAPI design
+    "PLW1510",# subprocess.run without check= True/False
+    "RUF015", # prefer next(...) over [0]
+    "S110",   # try-except-pass
+]

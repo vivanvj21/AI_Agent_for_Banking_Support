@@ -34,7 +34,7 @@ jobs:
         run: black --check .
 
       - name: Lint Code (Ruff)
-        run: ruff check --extend-ignore BLE,PL,B,ARG,TRY,ERA,A,C90,SIM,RET,F841,RUF,S .
+        run: ruff check .
 
   unit-and-integration-tests:
     name: Unit & Integration Tests (with Postgres & Redis)
